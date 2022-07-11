@@ -1,0 +1,13 @@
+{
+    "wifissid":"Maragos2Home",
+    "wifipassword":"@th@nas1a2093",
+    "mqttserver":"192.168.2.230",
+    "mqttusername":"openhabian",
+    "mqttpassword":"Hyund@!C@r",
+    "root_topicOut" : "paradoxdCTL/out"
+    "root_topicStatus" : "paradoxdCTL/status"
+    "root_topicIn" : "paradoxdCTL/in"
+    "root_topicHassioArm" : "paradoxdCTL/hassio/Arm"
+    "root_topicHassio" : "paradoxdCTL/hassio"
+    "root_topicArmHomekit" : "paradoxdCTL/HomeKit"
+}
