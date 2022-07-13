@@ -100,16 +100,22 @@ class paradox_arm_status:
 
 def serialRead():
     global MESSAGE
-    reset_message()
+    
     if paradoxserial.any() >= 37 :
+        reset_message()
         print("Serial has data")
         paradoxserial.readinto(MESSAGE)
+        if MESSAGE[0]==0x72:
+            while paradoxserial.any()>0:
+                paradoxserial.read()
+                return False
+        
         return True
     else:
         return False
     
-def serialWrite():
-    buffer_count = paradoxserial.write(MESSAGEOUT)
+def serialWrite(byteMessage):
+    buffer_count = paradoxserial.write(byteMessage)
     if buffer_count==MESSAGE_LENGTH:
         return True
     else:
@@ -155,26 +161,30 @@ def updateArmStatus(event, sub_event, partition):
     
 def get_event_data():
     e0msg = E0_message()
-    e0msg.Command=MESSAGE[0]
-    e0msg.Century=MESSAGE[1]
-    e0msg.Year=MESSAGE[2]
-    e0msg.Month=MESSAGE[3]
-    e0msg.Day=MESSAGE[4]
-    e0msg.Hour=MESSAGE[5]
-    e0msg.Minute=MESSAGE[6]
-    e0msg.Event_Group_Number=MESSAGE[7]
-    e0msg.Event_Supgroup_Number=MESSAGE[8]
-    e0msg.Partition_Number=MESSAGE[9]
-    e0msg.Data=MESSAGE[15:30].decode().strip()
+    if MESSAGE[0] == 0xE0:
+        
+        e0msg.Command=MESSAGE[0]
+        e0msg.Century=MESSAGE[1]
+        e0msg.Year=MESSAGE[2]
+        e0msg.Month=MESSAGE[3]
+        e0msg.Day=MESSAGE[4]
+        e0msg.Hour=MESSAGE[5]
+        e0msg.Minute=MESSAGE[6]
+        e0msg.Event_Group_Number=MESSAGE[7]
+        e0msg.Event_Supgroup_Number=MESSAGE[8]
+        e0msg.Partition_Number=MESSAGE[9]
+        e0msg.Data=MESSAGE[15:30].decode().strip()
     return e0msg.toJson()
 
 def processMessage():
     print("processMessage")
     global hassioStatus
-    print(MESSAGE)
+    print(f"MESSAGE is {hex(MESSAGE[0])} - {MESSAGE[0]}c ")
     
+       
     if MESSAGE[0] == 0x01 or MESSAGE[0] == 0x00:
         COMUNTICATION_INIT=True
+        print(f"Message is {hex(MESSAGE[0])}")
     
     if MESSAGE[0] == 0xE0:
         event=MESSAGE[7]
@@ -188,7 +198,7 @@ def processMessage():
             e.state=True if MESSAGE[7] == 1 else False 
             e.Partition_Number=MESSAGE[9]
             e.zone_name=MESSAGE[15:30].decode().strip()
-            e.topic = cfg.root_topicHassio.decode() + "/zone" + str(MESSAGE[8])
+            e.topic = cfg.root_topicHassio + "/zone" + str(MESSAGE[8])
             print(f"returning zoneJson  {e.toJson()}")
             return e.toJson()
         elif (MESSAGE[7] == 48 and MESSAGE[8] == 3):
@@ -218,31 +228,38 @@ def program_init(version):
 
 
 def panel_control(inCommand=inMessage()):
-    global MESSAGEOUT
+    global PANEL_IS_LOGGED_IN
     print("Starting panel_control")
-    MESSAGEOUT = initialize_comunitcation()
-    print(f"initialize_comunitcation {MESSAGEOUT}")
-    serialWrite()
-    cnt=0
-    while not COMUNTICATION_INIT:
-        sleep(1)
-        cnt +=1
-        if cnt>=5:
-            print("COMUNTICATION_INIT problem")
-            return
+    init = initialize_comunitcation()
+    print(f"initialize_comunitcation {init}")
+    if serialWrite(init):
+        while not serialRead():
+            pass
+            
+    initmessage = MESSAGE    
+    for x in range(MESSAGE_LENGTH):
+        print(f"[initmessage{x}]={hex(initmessage[x])}")
     
+    print(f"Message : {MESSAGE[0]}")    
+    login = panel_login(inCommand.panel_password,initmessage)
+    print(f"panel_login {login[14]} {login[15]}")
+    for x in range(MESSAGE_LENGTH):
+        print(f"[login{x}]={hex(login[x])}") 
+        
+    if serialWrite(login):
+        print("Login written to serial")
+        while not (serialRead()):
+            pass
+        
+    for x in range(MESSAGE_LENGTH):
+        print(f"[MESSAGE{x}]={hex(MESSAGE[x])}")    
     
-    MESSAGEOUT = panel_login(inCommand.panel_password)
-    print(f"panel_login {MESSAGEOUT}")
-    serialWrite()        
-    cnt=0
-    while not PANEL_IS_LOGGED_IN:
-        sleep(1)
-        cnt +=1
-        if cnt>=5:
-            print("panel login problem")
-            return
+    print(f"Message : {MESSAGE[0]}")
+    if MESSAGE[0]==0x10:
+        PANEL_IS_LOGGED_IN=True
+        
     
+    print(f"PANEL_IS_LOGGED_IN:{PANEL_IS_LOGGED_IN}")
     
     panel_command = get_panel_command(inCommand.command)
     panel_subcommand = int(inCommand.subcommand) & 0xff
@@ -253,12 +270,18 @@ def panel_control(inCommand=inMessage()):
     armdata[33] = 0x05
     armdata[34] = 0x00
     armdata[35] = 0x00
-    MESSAGEOUT = checksum_calculate(armdata)
-    serialWrite()
+    armdata = checksum_calculate(armdata)
+    
+    if serialWrite(armdata):
+        print("armdata written to serial")
+        while not (serialRead()):
+            pass
+    return True
 
 def reset_message():
     global MESSAGE
     MESSAGE = bytearray(MESSAGE_LENGTH)
+    MESSAGE[0]=255
     return MESSAGE
 
 def checksum_calculate(data):
@@ -268,11 +291,12 @@ def checksum_calculate(data):
     
     print(f"calculate checksum for {checksum}")
     while (checksum > 255) :
-        checksum = checksum - (checksum / 256) * 256
+        intch =int(checksum / 256)
+        checksum = checksum - intch * 256
     print(f"checksum = {checksum}")
     #checksum = checksum #& 0xFF
     #print(type(checksum))
-    data[36] =  checksum & 0xFF
+    data[36] =  checksum
     return data
 
 def initialize_comunitcation():
@@ -285,20 +309,24 @@ def initialize_comunitcation():
     data = checksum_calculate(data)
     return data
 
-def panel_login(panel_password):
+def panel_login(panel_password, initMessage):
+    pass1 = "0x" + str(panel_password)[0:2]
+    pass2 = "0x" + str(panel_password)[2:4]
+    
     data1=bytearray(MESSAGE_LENGTH)
+    
     data1[0] = 0x00;
-    data1[4] = MESSAGE[4]
-    data1[5] = MESSAGE[5]
-    data1[6] = MESSAGE[6]
-    data1[7] = MESSAGE[7]
-    data1[7] = MESSAGE[8]
-    data1[9] = MESSAGE[9]
+    data1[4] = initMessage[4]& 0xff
+    data1[5] = initMessage[5]& 0xff
+    data1[6] = initMessage[6]& 0xff
+    data1[7] = initMessage[7]& 0xff
+    data1[7] = initMessage[8]& 0xff
+    data1[9] = initMessage[9]& 0xff
     data1[10] = 0x00;
     data1[11] = 0x00;
     data1[13] = 0x55;
-    data1[14] = int((str(panel_password)[0:2])) # //panel pc password digit 1 & 2
-    data1[15] = int((str(panel_password)[2:4])) # //panel pc password digit 3 & 4
+    data1[14] = int(pass1, 16)
+    data1[15] = int(pass2, 16)
     data1[33] = 0x05;
     data1=checksum_calculate(data1)
     return data1
