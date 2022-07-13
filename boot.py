@@ -36,3 +36,6 @@ print(station.config('dhcp_hostname'))
 led.value(station.isconnected())
 print('Connection successful')
 print(station.ifconfig())
+
+import webrepl
+webrepl.start()

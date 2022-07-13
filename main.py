@@ -2,13 +2,14 @@ import websrv
 import paradoxEvents
 import json
 import threading
-from machine import UART
+from machine import UART ,WDT
 from time import sleep
 
-VERSION="0.01"
+VERSION="1.01"
 
 SEND_ALL_EVENTS = True
 
+#wdt = WDT(timeout=10000)
 
 
 client_id = ubinascii.hexlify(machine.unique_id())
@@ -454,6 +455,7 @@ Serial_loop_msg=False
 def serialloop():
     global Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
     while True:
+        #wdt.feed()
         try:
             client.check_msg()
             if PANEL_LOGIN_IN_PROGRESS != Serial_loop_msg:
@@ -473,6 +475,7 @@ try:
   t1= threading.Thread(target=serialloop)
   panel_login("9999")
   websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
+  
 
 except OSError as e:
   restart_and_reconnect()
