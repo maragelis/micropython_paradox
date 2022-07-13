@@ -27,7 +27,7 @@ class MQTTClient:
         self.keepalive = keepalive
         self.lw_topic = None
         self.lw_msg = None
-        self.lw_qos = 0
+        self.lw_qos = 1
         self.lw_retain = False
 
     def _send_str(self, s):

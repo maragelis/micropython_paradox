@@ -20,14 +20,19 @@ led = machine.Pin(2, machine.Pin.OUT)
 
 
 station = network.WLAN(network.STA_IF)
+#station.config(dhcp_hostname="Paradox32CTL")
+
 
 station.active(True)
 led.value(station.isconnected())
 station.connect(ssid, password)
 
+
 while station.isconnected() == False:
   pass
 
+station.config(dhcp_hostname=cfg.controller_name)
+print(station.config('dhcp_hostname'))
 led.value(station.isconnected())
 print('Connection successful')
 print(station.ifconfig())

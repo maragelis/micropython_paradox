@@ -16,7 +16,7 @@ topic_sub = cfg.root_topicIn
 mqtt_server = cfg.mqttserver
 print(f"mqtt_server:{cfg.mqttserver}, username:{cfg.mqttusername}, password:{cfg.mqttpassword}, topic:{cfg.root_topicIn}")
 
-paradoxserial = UART(2,baudrate=9600)
+paradoxserial = UART(cfg.ESP_UART,baudrate=9600)
 paradoxserial.init()
 
 STAY_ARM = 0x01
@@ -38,6 +38,8 @@ PANEL_IS_LOGGED_IN=False
 COMUNTICATION_INIT=False
 PANEL_LOGIN_IN_PROGRESS=False
 
+
+
 class paradoxArm:
     intArmStatus=0
     stringArmStatus=""
@@ -50,10 +52,10 @@ class paradoxArm:
     def __str__(self):
         return f"paradoxArm intArmStatus:{str(self.intArmStatus)} ,stringArmStatus:{self.stringArmStatus},Partition:{str(self.Partition)},sent:{str(self.sent)}"
 
+
 hassioStatus1 = paradoxArm()
 hassioStatus2 = paradoxArm()
 hassioStatus = (hassioStatus1,hassioStatus2)
-
 
 class E0_message:
     Command=""
@@ -112,17 +114,21 @@ def sub_cb(topic, msg):
     if topic == bytes(cfg.root_topicIn,"utf-8") :
         strmsg = msg.decode("utf-8")
         json_data = json.loads(strmsg)
-        inmessage =inMessage()
-        if "panel_password" in json_data:
-            inmessage.panel_password=json_data["panel_password"]
+        if "ESP_command" in json_data:
+                pass
+        
         if "command" in json_data:
+            inmessage =inMessage()
             inmessage.command = json_data["command"]
-        if "subcommand" in json_data:
-            inmessage.subcommand = json_data["subcommand"]
-        else:
-            inmessage.subcommand = "0"
+            if "panel_password" in json_data:
+                inmessage.panel_password=json_data["panel_password"]
+        
+            if "subcommand" in json_data:
+                inmessage.subcommand = json_data["subcommand"]
+            else:
+                inmessage.subcommand = "0"
             
-        print(panel_control(inmessage))
+            print(panel_control(inmessage))
             
         print(f"ESP received message : {inmessage}")
 
@@ -365,16 +371,17 @@ def initialize_comunitcation():
     return data
 
 def panel_login(panel_password):
-    global PANEL_LOGIN_IN_PROGRESS,PANEL_IS_LOGGED_IN
+    global COMUNTICATION_INIT,PANEL_LOGIN_IN_PROGRESS,PANEL_IS_LOGGED_IN
     
     PANEL_LOGIN_IN_PROGRESS=True
     sleep(1)
     initMessage = initialize_comunitcation()
+    COMUNTICATION_INIT=True
     
     print("Sent initialize_comunitcation")
     rinitMessage = serialReadWriteQuick(initMessage)
     print("returned initialize_comunitcation")
-    print(rinitMessage)
+    #print(rinitMessage)
     
     pass1 = "0x" + str(panel_password)[0:2]
     pass2 = "0x" + str(panel_password)[2:4]
@@ -438,19 +445,14 @@ def sendArmStatus(hass):
     arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
     arm_mesg.Armstatus =  hass.intArmStatus
     arm_mesg.ArmStatusD = hass.stringArmStatus
-    client.publish(arm_mesg.topic,arm_mesg.toJson() )
+    client.publish(arm_mesg.topic,arm_mesg.toJson(), True, 1 )
     return arm_mesg.toJson() 
   
-try:
-  client = connect_and_subscribe()
-  client.publish(cfg.root_topicStatus, program_init(VERSION))
-except OSError as e:
-  restart_and_reconnect()
 
-
+KILL_THREAD=False
 Serial_loop_msg=False
 def serialloop():
-    global Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS
+    global Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
     while True:
         try:
             client.check_msg()
@@ -459,12 +461,27 @@ def serialloop():
                   Serial_loop_msg=PANEL_LOGIN_IN_PROGRESS
             if not PANEL_LOGIN_IN_PROGRESS:
               serialRead()            
-
+            if KILL_THREAD:
+                break
         except OSError as e:
+            KILL_THREAD=True
             restart_and_reconnect()
+            
+try:
+  client = connect_and_subscribe()
+  client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
+  t1= threading.Thread(target=serialloop)
+  panel_login("9999")
+  websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
+
+except OSError as e:
+  restart_and_reconnect()
+
 
 #serialloop()
-t1= threading.Thread(target=serialloop)
+#t1= threading.Thread(target=serialloop)
+#panel_login("9999")
+#websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
 
 if __name__ == '__main__':
     try:
@@ -473,5 +490,6 @@ if __name__ == '__main__':
         print("Starting Webserver")
         websrv.runsrv()
     except:
+        KILL_THREAD=True
         restart_and_reconnect()
     
