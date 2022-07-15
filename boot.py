@@ -8,6 +8,7 @@ import esp
 import config
 esp.osdebug(None)
 import gc
+import sys
 gc.collect()
 
 cfg = config.configuration()
@@ -17,8 +18,10 @@ password = cfg.wifipassword
 #EXAMPLE IP ADDRESS
 #mqtt_server = '192.168.1.144'
 led = machine.Pin(2, machine.Pin.OUT)
+repl_button = machine.Pin(0, machine.Pin.IN, machine.Pin.PULL_UP)
 
 
+            
 station = network.WLAN(network.STA_IF)
 #station.config(dhcp_hostname="Paradox32CTL")
 

@@ -5,6 +5,21 @@ import threading
 from machine import UART ,WDT
 from time import sleep
 
+print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
+
+
+replloopcnt=0
+while replloopcnt < 10:
+    if repl_button.value() == 0:
+        print("Dropping to REPL")
+        sys.exit()
+    else:
+        replloopcnt +=1
+        print(f"waiting for repl {10-replloopcnt} {'.' * replloopcnt} ")
+        sleep(1)
+        
+    
+            
 VERSION="1.01"
 
 SEND_ALL_EVENTS = True
@@ -456,6 +471,7 @@ def serialloop():
     global Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
     while True:
         #wdt.feed()
+        
         try:
             client.check_msg()
             if PANEL_LOGIN_IN_PROGRESS != Serial_loop_msg:
