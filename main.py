@@ -22,7 +22,7 @@ while replloopcnt < 10:
         
     
             
-VERSION="1.2"
+VERSION="1.3"
 
 SEND_ALL_EVENTS = True
 
@@ -313,10 +313,10 @@ def processMessage(serial_message):
             e.zone_name=serial_message[15:30].decode().strip()
             e.topic = cfg.root_topicHassio + "/zone" + str(serial_message[8])
             utils.trace(f"returning zoneJson  {e.toJson()}")
-            client.publish(e.topic, e.toJson())
+            client.publish(e.topic, str(e.state))
             
             e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
-            client.publish(e.topic, e.state)
+            client.publish(e.topic, str(e.state))
         
             
         elif (serial_message[7] == 48 and serial_message[8] == 3):
@@ -327,7 +327,14 @@ def processMessage(serial_message):
             PANEL_IS_LOGGED_IN = True
             utils.trace(f"Panel Login from E0 message PANEL_IS_LOGGED_IN:{PANEL_IS_LOGGED_IN}")
            
-                   
+        elif event == 29 or event == 31:
+            send = paradoxArm()
+            send.stringArmStatus="pending"
+            send.Partition = partition
+            sendArmStatusMQtt(send)
+            
+            
+        
         elif event == 2 or event == 6:
             utils.trace(f"event:{event} updateArmStatus")
             updateArmStatus(event,sub_event, partition)
@@ -494,8 +501,7 @@ def sendArmStatusMQtt(hass):
     arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
     client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
     
-    LIFO.clear()
-    
+        
     return arm_mesg.toJson() 
   
 def sendArmStatus(hass):
@@ -546,10 +552,11 @@ def serialloop():
                                 
                 
                 else:
-                    print("entered lifo > 0 with AA")
+                    print(f"entered lifo > 0 with AA {LIFO}")
                     for i in LIFO:
-                        print(f"LIFO_AA is {LIFO}")
+                        
                         if not isinstance(i, str):
+                            print(f"LIFO_AA is {i}")
                             sendArmStatusMQtt(i)
                     
                 print("cleared LIFO")
