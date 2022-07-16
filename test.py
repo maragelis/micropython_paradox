@@ -1,5 +1,7 @@
 
-lifo = ["peter","simon"]
+lifo = ["petuer","sidmon"]
 
-if "peter" in lifo:
-    print("hhh")
+if ("peter" or "simon") in lifo:
+    print("y")
+else:
+    print("x")

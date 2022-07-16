@@ -22,7 +22,7 @@ while replloopcnt < 10:
         
     
             
-VERSION="1.10_test"
+VERSION="1.2"
 
 SEND_ALL_EVENTS = True
 
@@ -58,7 +58,7 @@ PANEL_IS_LOGGED_IN=False
 COMUNTICATION_INIT=False
 PANEL_LOGIN_IN_PROGRESS=False
 
-
+LIFO=[]
 
 class paradoxArm:
     intArmStatus=0
@@ -483,10 +483,8 @@ def get_panel_command(arm_request):
     return retval
     
 
-
-  
-def sendArmStatus(hass):
-    utils.trace(f"SENDING ARM STATUS {hass}")
+def sendArmStatusMQtt(hass):
+    print(f"SENDING ARM STATUS {hass}")
     arm_mesg=arm_message()
     arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
     arm_mesg.Armstatus =  hass.intArmStatus
@@ -496,15 +494,35 @@ def sendArmStatus(hass):
     arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
     client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
     
+    LIFO.clear()
+    
     return arm_mesg.toJson() 
+  
+def sendArmStatus(hass):
+    utils.trace(f"SENDING ARM STATUS {hass}")
+    arm_mesg=arm_message()
+    arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
+    arm_mesg.Armstatus =  hass.intArmStatus
+    arm_mesg.ArmStatusD = hass.stringArmStatus
+    #client.publish(arm_mesg.topic,hass.stringArmStatus, True, 1 )
+    
+    arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
+    #client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
+    
+    LIFO.append(hass.HomeKit)
+    LIFO.append(hass)
+    print(f"Added to LIFO {hass.HomeKit}")
+    #return arm_mesg.toJson() 
   
 
 KILL_THREAD=False
 Serial_loop_msg=False
 def serialloop():
     global Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
+    serial_last_read = time.time()
     while True:
         #wdt.feed()
+        
         
         try:
             client.check_msg()
@@ -512,7 +530,33 @@ def serialloop():
                   utils.trace(f"PANEL_LOGIN_IN_PROGRESS Status changed to {PANEL_LOGIN_IN_PROGRESS}")
                   Serial_loop_msg=PANEL_LOGIN_IN_PROGRESS
             if not PANEL_LOGIN_IN_PROGRESS:
-              serialRead()            
+              if serialRead():
+                  serial_last_read = time.time()
+                  print(f"LIFO len:{len(LIFO)}")
+            
+            
+            if len(LIFO)>0 and (time.time() - serial_last_read > 5):
+                print(f"LIFO is {LIFO}")
+                if ("NA" or "SA") in LIFO:
+                    for i in LIFO:
+                        if not isinstance(i, str):
+                            
+                            if  i.HomeKit == "NA" or i.HomeKit == "SA":
+                                sendArmStatusMQtt(i)
+                                
+                
+                else:
+                    print("entered lifo > 0 with AA")
+                    for i in LIFO:
+                        print(f"LIFO_AA is {LIFO}")
+                        if not isinstance(i, str):
+                            sendArmStatusMQtt(i)
+                    
+                print("cleared LIFO")
+                LIFO.clear()   
+                
+                
+                
             if KILL_THREAD:
                 break
         except OSError as e:
