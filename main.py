@@ -21,7 +21,7 @@ while replloopcnt < 10:
         
     
             
-VERSION="1.10"
+VERSION="1.10_test"
 
 SEND_ALL_EVENTS = True
 
