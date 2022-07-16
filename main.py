@@ -22,7 +22,7 @@ while replloopcnt < 10:
         
     
             
-VERSION="1.3"
+VERSION="1.4"
 
 SEND_ALL_EVENTS = True
 
@@ -231,7 +231,7 @@ def updateArmStatus(event, sub_event, partition):
     hassioStatus[partition].Partition  = partition
     if (event == 2):
         utils.trace("event:2")
-        if sub_event==4:
+        if sub_event>=2 and sub_event <=6 :
             utils.trace("sub_event:4")
             
             hassioStatus[partition].stringArmStatus = "triggered"
@@ -330,6 +330,7 @@ def processMessage(serial_message):
         elif event == 29 or event == 31:
             send = paradoxArm()
             send.stringArmStatus="pending"
+            send.intArmStatus=99
             send.Partition = partition
             sendArmStatusMQtt(send)
             
@@ -348,6 +349,9 @@ def processMessage(serial_message):
                 
             elif event==2 and sub_event==12:
                 sendArmStatus(hassioStatus[partition])
+                
+            if hassioStatus[partition].intArmStatus==4:
+                sendArmStatusMQtt(hassioStatus[partition])
                 
         #elif (event != 2 and sub_event != 12) :
         #    utils.trace(f"process message event:{event},sub_event:{sub_event} sendArmStatus")
@@ -492,14 +496,17 @@ def get_panel_command(arm_request):
 
 def sendArmStatusMQtt(hass):
     print(f"SENDING ARM STATUS {hass}")
+    
+        
     arm_mesg=arm_message()
     arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
     arm_mesg.Armstatus =  hass.intArmStatus
     arm_mesg.ArmStatusD = hass.stringArmStatus
     client.publish(arm_mesg.topic,hass.stringArmStatus, True, 1 )
     
-    arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
-    client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
+    if hass.intArmStatus != 99:
+        arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
+        client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
     
         
     return arm_mesg.toJson() 
