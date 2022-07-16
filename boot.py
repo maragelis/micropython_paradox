@@ -40,5 +40,5 @@ led.value(station.isconnected())
 print('Connection successful')
 print(station.ifconfig())
 
-import webrepl
-webrepl.start()
+#import webrepl
+#webrepl.start()

@@ -5,6 +5,7 @@ import threading
 from machine import UART ,WDT
 from time import sleep
 import utils
+import ParadoxSubEvent
 
 print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
 
@@ -62,6 +63,7 @@ PANEL_LOGIN_IN_PROGRESS=False
 class paradoxArm:
     intArmStatus=0
     stringArmStatus=""
+    HomeKit=""
     Partition=0
     sent=0
     
@@ -85,7 +87,9 @@ class E0_message:
     Hour=""
     Minute=""
     Event_Group_Number=""
-    Event_Supgroup_Number=""
+    Event_Subgroup_Number=""
+    Event_Group_Desc=""
+    Event_Subgroup_Desc=""
     Partition_Number=""
     Data=""
     
@@ -169,20 +173,25 @@ def restart_and_reconnect():
   machine.reset()    
 
 def serialRead():
-    MESSAGE = bytearray(MESSAGE_LENGTH)
+    try:
         
-    if  paradoxserial.any() >= 37 :
-        #reset_message()
-        utils.trace(f"serialRead has data {paradoxserial.any()}")
-        paradoxserial.readinto(MESSAGE)
-        
-        processMessage(MESSAGE)
-        if SEND_ALL_EVENTS:
-            get_event_data(MESSAGE)
-        
-        return True
-    else:
-        return False
+    
+        MESSAGE = bytearray(MESSAGE_LENGTH)
+            
+        if  paradoxserial.any() >= 37 :
+            #reset_message()
+            utils.trace(f"serialRead has data {paradoxserial.any()}")
+            paradoxserial.readinto(MESSAGE)
+            
+            processMessage(MESSAGE)
+            if SEND_ALL_EVENTS:
+                get_event_data(MESSAGE)
+            
+            return True
+        else:
+            return False
+    except OSError as e:
+        restart_and_reconnect()
     #sleep(0.5)
         
 def serialReadWriteQuick(byteMessage):
@@ -227,17 +236,20 @@ def updateArmStatus(event, sub_event, partition):
             
             hassioStatus[partition].stringArmStatus = "triggered"
             hassioStatus[partition].intArmStatus=4
+            hassioStatus[partition].HomeKit="T"
             datachanged=True
             utils.trace(f"ARM_STATE update : triggered")
         elif sub_event==11:
             utils.trace("sub_event:11")
             hassioStatus[partition].stringArmStatus = "disarmed"
+            hassioStatus[partition].HomeKit="D"
             hassioStatus[partition].intArmStatus = 3
             datachanged=True
             utils.trace(f"ARM_STATE update : disarmed")
         elif sub_event==12:
             utils.trace("sub_event:12")
             hassioStatus[partition].stringArmStatus = "armed_away"
+            hassioStatus[partition].HomeKit="AA"
             hassioStatus[partition].intArmStatus = 1
             datachanged=True
             utils.trace(f"ARM_STATE update : armed_away")
@@ -247,12 +259,14 @@ def updateArmStatus(event, sub_event, partition):
             utils.trace("sub_event:3")
             datachanged=True
             hassioStatus[partition].stringArmStatus = "armed_stay"
+            hassioStatus[partition].HomeKit="SA"
             hassioStatus[partition].intArmStatus = 0
             utils.trace(f"ARM_STATE update : armed_home")
         elif ( sub_event == 4):
             utils.trace("sub_event:4")
             datachanged=True
             hassioStatus[partition].stringArmStatus = "armed_sleep"
+            hassioStatus[partition].HomeKit="NA"
             hassioStatus[partition].intArmStatus = 2
             utils.trace(f"ARM_STATE update : armed_home")
     utils.trace(f"hassioStatus:{hassioStatus[partition]}")     
@@ -269,9 +283,10 @@ def get_event_data(serial_message):
         e0msg.Hour=serial_message[5]
         e0msg.Minute=serial_message[6]
         e0msg.Event_Group_Number=serial_message[7]
-        e0msg.Event_Supgroup_Number=serial_message[8]
+        e0msg.Event_Subgroup_Desc=ParadoxSubEvent.getsubEvent(serial_message[7],serial_message[8])
+        e0msg.Event_Subgroup_Number=serial_message[8]
         e0msg.Partition_Number=serial_message[9]
-        e0msg.Data=paradoxEvents.getEvent(serial_message[7])
+        e0msg.Event_Group_Desc=paradoxEvents.getEvent(serial_message[7])
         client.publish(cfg.root_topicOut, e0msg.toJson())
 
 def processMessage(serial_message):
@@ -288,6 +303,7 @@ def processMessage(serial_message):
         sub_event=serial_message[8]
         partition=serial_message[9]
         
+        
         if serial_message[7] == 0 or serial_message[7]==1:
             utils.trace("E0 Zone Message receivied")
             e = zone_message()
@@ -299,6 +315,8 @@ def processMessage(serial_message):
             utils.trace(f"returning zoneJson  {e.toJson()}")
             client.publish(e.topic, e.toJson())
             
+            e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
+            client.publish(e.topic, e.state)
         
             
         elif (serial_message[7] == 48 and serial_message[8] == 3):
@@ -318,14 +336,17 @@ def processMessage(serial_message):
             if (event == 2 and sub_event == 11):
                 sendArmStatus(hassioStatus[partition])
             
-            if (event == 6 and sub_event == 27) or (event == 6  and sub_event>=3 and sub_event <= 6):
+            elif (event == 6 and sub_event == 27) or (event == 6  and sub_event>=3 and sub_event <= 6):
                 sendArmStatus(hassioStatus[partition])
                 
-        elif (event != 2 and sub_event != 12) :
-            utils.trace(f"process message event:{event},sub_event:{sub_event} sendArmStatus")
-            if (hassioStatus[partition].sent != hassioStatus[partition].intArmStatus):
-                hassioStatus[partition].sent = hassioStatus[partition].intArmStatus
-                sendArmStatus(hassioStatus[partition])  
+            elif event==2 and sub_event==12:
+                sendArmStatus(hassioStatus[partition])
+                
+        #elif (event != 2 and sub_event != 12) :
+        #    utils.trace(f"process message event:{event},sub_event:{sub_event} sendArmStatus")
+        #    if (hassioStatus[partition].sent != hassioStatus[partition].intArmStatus):
+        #        hassioStatus[partition].sent = hassioStatus[partition].intArmStatus
+        #        sendArmStatus(hassioStatus[partition])  
         
         
     utils.trace(f"Ended processMessage")
@@ -470,7 +491,11 @@ def sendArmStatus(hass):
     arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
     arm_mesg.Armstatus =  hass.intArmStatus
     arm_mesg.ArmStatusD = hass.stringArmStatus
-    client.publish(arm_mesg.topic,arm_mesg.toJson(), True, 1 )
+    client.publish(arm_mesg.topic,hass.stringArmStatus, True, 1 )
+    
+    arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
+    client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
+    
     return arm_mesg.toJson() 
   
 
