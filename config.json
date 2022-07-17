@@ -6,10 +6,10 @@
     "mqttserver":"192.168.2.230",
     "mqttusername":"openhabian",
     "mqttpassword":"Hyund@!C@r",
-    "root_topicOut" : "/out"
-    "root_topicStatus" : "/status"
-    "root_topicIn" : "/in"
-    "root_topicHassioArm" : "/hassio/Arm"
-    "root_topicHassio" : "/hassio"
+    "root_topicOut" : "/out",
+    "root_topicStatus" : "/status",
+    "root_topicIn" : "/in",
+    "root_topicHassioArm" : "/hassio/Arm",
+    "root_topicHassio" : "/hassio",
     "root_topicArmHomekit" : "/HomeKit"
 }

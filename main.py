@@ -6,6 +6,10 @@ from machine import UART ,WDT
 from time import sleep
 import utils
 import ParadoxSubEvent
+import utelegram
+
+
+
 
 print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
 
@@ -353,6 +357,7 @@ def processMessage(serial_message):
             if hassioStatus[partition].intArmStatus==4:
                 sendArmStatusMQtt(hassioStatus[partition])
                 
+                
         #elif (event != 2 and sub_event != 12) :
         #    utils.trace(f"process message event:{event},sub_event:{sub_event} sendArmStatus")
         #    if (hassioStatus[partition].sent != hassioStatus[partition].intArmStatus):
@@ -531,7 +536,7 @@ def sendArmStatus(hass):
 KILL_THREAD=False
 Serial_loop_msg=False
 def serialloop():
-    global Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
+    global LIFO,Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
     serial_last_read = time.time()
     while True:
         #wdt.feed()
@@ -549,12 +554,15 @@ def serialloop():
             
             
             if len(LIFO)>0 and (time.time() - serial_last_read > 5):
+                LIFO = list(set(LIFO))
                 print(f"LIFO is {LIFO}")
                 if ("NA" or "SA") in LIFO:
+                    message_sent=False
                     for i in LIFO:
                         if not isinstance(i, str):
                             
-                            if  i.HomeKit == "NA" or i.HomeKit == "SA":
+                            if  (i.HomeKit == "NA" or i.HomeKit == "SA"):
+                                print(f"LIFO LOOP sending {i}")
                                 sendArmStatusMQtt(i)
                                 
                 
