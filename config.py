@@ -1,6 +1,13 @@
 import os
 import json
 
+
+
+utelegram_config = {
+    'token': '5318490984:AAFAGJPFb0WbqXF_9Ibyj53byiVQlqsFmWg',
+    'messageid':'5405292427'
+}
+
 class configuration:
     wifissid=""
     wifipassword=""
@@ -16,6 +23,7 @@ class configuration:
     ESP_UART=0
     controller_name="Paradox32CTL"
     
+    
     def readconfig():
         
         if "config.json" in os.listdir():
@@ -23,6 +31,9 @@ class configuration:
             jsonstr = f.read()
             f.close()
             return json.loads(jsonstr)
+        
+    def toJson(self):
+        return json.dumps(self.__dict__)
     
     def __init__(self):
         if "config.json" in os.listdir():
@@ -43,8 +54,7 @@ class configuration:
             self.root_topicArmHomekit=self.controller_name + jsonf["root_topicArmHomekit"]
             self.root_topicIn=self.controller_name + jsonf["root_topicIn"]
             self.ESP_UART=jsonf["ESP_UART"]
-    
-    
+                
     
         
 
