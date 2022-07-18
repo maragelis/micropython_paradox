@@ -26,7 +26,7 @@ while replloopcnt < 10:
         
     
             
-VERSION="1.4"
+VERSION="1.5"
 
 SEND_ALL_EVENTS = True
 
@@ -165,7 +165,7 @@ def sub_cb(topic, msg):
 def connect_and_subscribe():
   global client_id, mqtt_server, topic_sub
   client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword)
-  client.set_last_will(f"{cfg.controller_name}/lwt","true")
+  #client.set_last_will(f"{cfg.controller_name}/lwt","true")
   client.set_callback(sub_cb)
   client.connect()
   client.subscribe(topic_sub)
