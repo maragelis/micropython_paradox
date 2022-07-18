@@ -158,12 +158,14 @@ def sub_cb(topic, msg):
                 inmessage.subcommand = "0"
             
             utils.trace(panel_control(inmessage))
-            
+        
+        gc.collect()        
         utils.trace(f"ESP received message : {inmessage}")
 
 def connect_and_subscribe():
   global client_id, mqtt_server, topic_sub
   client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword)
+  client.set_last_will(f"{cfg.controller_name}/lwt","true")
   client.set_callback(sub_cb)
   client.connect()
   client.subscribe(topic_sub)
@@ -578,7 +580,7 @@ def serialloop():
                 LIFO.clear()   
                 
                 
-                
+            gc.collect()    
             if KILL_THREAD:
                 break
         except OSError as e:

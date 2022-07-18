@@ -64,6 +64,7 @@ async def savejson(request):
         f = open('config.json','w')
         f.write(cfg.toJson())
         f.close()
+        
         return send_file('html/saveOK.html')
     except:
         return "ERROR SAVING <a href='/config'>Return to config</a>",200,"text/html"
