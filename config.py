@@ -3,10 +3,7 @@ import json
 
 
 
-utelegram_config = {
-    'token': '5318490984:AAFAGJPFb0WbqXF_9Ibyj53byiVQlqsFmWg',
-    'messageid':'5405292427'
-}
+
 
 class configuration:
     wifissid=""
