@@ -111,7 +111,7 @@ class arm_message:
 class zone_message:
     zone=0
     zone_name=""
-    state=False
+    state=""
     Partition_Number=0
     topic=""
     
@@ -314,7 +314,7 @@ def processMessage(serial_message):
             utils.trace("E0 Zone Message receivied")
             e = zone_message()
             e.zone=serial_message[8]
-            e.state=True if serial_message[7] == 1 else False 
+            e.state="ON" if serial_message[7] == 1 else "OFF" 
             e.Partition_Number=serial_message[9]
             e.zone_name=serial_message[15:30].decode().strip()
             e.topic = cfg.root_topicHassio + "/zone" + str(serial_message[8])
