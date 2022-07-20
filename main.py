@@ -264,14 +264,14 @@ def updateArmStatus(event, sub_event, partition):
         if (sub_event == 3):
             utils.trace("sub_event:3")
             datachanged=True
-            hassioStatus[partition].stringArmStatus = "armed_stay"
+            hassioStatus[partition].stringArmStatus = "armed_home"
             hassioStatus[partition].HomeKit="SA"
             hassioStatus[partition].intArmStatus = 0
             utils.trace(f"ARM_STATE update : armed_home")
         elif ( sub_event == 4):
             utils.trace("sub_event:4")
             datachanged=True
-            hassioStatus[partition].stringArmStatus = "armed_sleep"
+            hassioStatus[partition].stringArmStatus = "armed_home"
             hassioStatus[partition].HomeKit="NA"
             hassioStatus[partition].intArmStatus = 2
             utils.trace(f"ARM_STATE update : armed_home")
