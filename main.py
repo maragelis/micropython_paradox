@@ -6,7 +6,7 @@ from machine import UART ,WDT
 from time import sleep
 import utils
 import ParadoxSubEvent
-import utelegram
+
 
 
 
