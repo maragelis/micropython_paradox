@@ -142,15 +142,19 @@ def sub_cb(topic, msg):
     utils.trace((topic, msg))
     if topic == bytes(cfg.root_topicIn,"utf-8") :
         strmsg = msg.decode("utf-8")
-        json_data = json.loads(strmsg)
-        if "ESP_command" in json_data:
+        json_data = json.loads(strmsg.lower())
+        if "esp_command" in json_data:
                 pass
         
-        if "command" in json_data:
+        if ("command" in json_data):
             inmessage =inMessage()
             inmessage.command = json_data["command"]
+            
             if "panel_password" in json_data:
                 inmessage.panel_password=json_data["panel_password"]
+                
+            if "password" in json_data:
+                inmessage.panel_password=json_data["password"]
         
             if "subcommand" in json_data:
                 inmessage.subcommand = json_data["subcommand"]
