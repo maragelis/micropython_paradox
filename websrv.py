@@ -15,6 +15,10 @@ def set_webpage_vars( ipaddress, PanelConnected):
     _ipaddress = ipaddress[0]
     _PanelConnected=PanelConnected
 
+def set_panel_isconnected(panelconnected):
+    global _PanelConnected
+    _PanelConnected=panelconnected
+
 app = Microdot()
 
 @app.route('/')
@@ -83,5 +87,8 @@ async def main():
 
 def runsrv():
     asyncio.run(main())
+    
+def stopsrv():
+    app.shutdown()
 
 #runsrv()
