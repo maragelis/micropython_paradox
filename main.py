@@ -149,12 +149,21 @@ def sub_cb(topic, msg):
         if ("command" in json_data):
             inmessage =inMessage()
             inmessage.command = json_data["command"]
+            inmessage.panel_password=""
+            fixed_password = ""
             
             if "panel_password" in json_data:
-                inmessage.panel_password=json_data["panel_password"]
+                fixed_password=str(json_data["panel_password"])
                 
             if "password" in json_data:
-                inmessage.panel_password=json_data["password"]
+                fixed_password=str(json_data["password"])
+            
+            if len(fixed_password)>=4:
+                for i in fixed_password:
+                    inmessage.panel_password += i if i != '0' else 'A'
+            else:
+                inmessage.panel_password = "0000"
+            
         
             if "subcommand" in json_data:
                 inmessage.subcommand = json_data["subcommand"]
