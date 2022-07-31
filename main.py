@@ -215,12 +215,12 @@ def serialRead():
         
 def serialReadWriteQuick(byteMessage):
     global MESSAGE
-    
+    time_start = time.time()
     paradoxserial.write(byteMessage)
     
     serial_message= bytearray(MESSAGE_LENGTH)
     loop = True
-    while loop:
+    while loop :
         if paradoxserial.any() >= 37 :
             utils.trace(f"serialReadWriteQuick has data {paradoxserial.any()}")
             paradoxserial.readinto(serial_message)
@@ -455,6 +455,7 @@ def panel_login(panel_password):
     utils.trace("Sent initialize_comunitcation")
     rinitMessage = serialReadWriteQuick(initMessage)
     COMUNTICATION_INIT=True
+    websrv.set_panel_isconnected(COMUNTICATION_INIT)
     utils.trace("returned initialize_comunitcation")
     #utils.trace(rinitMessage)
     
@@ -553,9 +554,9 @@ Serial_loop_msg=False
 def serialloop():
     global LIFO,Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
     serial_last_read = time.time()
+    wdt = WDT(timeout=10000)
     while True:
-        #wdt.feed()
-        
+        wdt.feed()
         
         try:
             client.check_msg()
@@ -604,7 +605,6 @@ try:
   client = connect_and_subscribe()
   client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
   t1= threading.Thread(target=serialloop)
-  panel_login("9999")
   websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
   
 
@@ -612,15 +612,9 @@ except OSError as e:
   restart_and_reconnect()
 
 
-#serialloop()
-#t1= threading.Thread(target=serialloop)
-#panel_login("9999")
-#websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
-
 if __name__ == '__main__':
     try:
         t1.start()
-        #serialloop()
         utils.trace("Starting Webserver")
         websrv.runsrv()
     except:
