@@ -171,9 +171,11 @@ def sub_cb(topic, msg):
                 inmessage.subcommand = "0"
             
             utils.trace(panel_control(inmessage))
+        else:
+            client.publish(cfg.root_topicStatus, "malformatted json message" )
         
         gc.collect()        
-        utils.trace(f"ESP received message : {inmessage}")
+        utils.trace(f"ESP received message : {msg}")
 
 def connect_and_subscribe():
   global client_id, mqtt_server, topic_sub
