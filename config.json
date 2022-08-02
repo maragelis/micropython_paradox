@@ -1,5 +1,6 @@
 {
     "ESP_UART":2,
+    "timezone":2,
     "controller_name":"paradoxd32CTL",
     "wifissid":"WifiSSID",
     "wifipassword":"password",

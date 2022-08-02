@@ -37,58 +37,8 @@
     <a href="Soft_reset"><button class="btn btn-outline-warning">Soft RESET</button></a>
 </div>
 
-<div class="container">
-    <div class="d-flex justify-content-center"><h3>Documentation </h3></div>
-    <div>
-        <div>
-        This project is still work in progress it uses a wemos esp8266 to read events of the serial bus of any Paradox alarm system and send it to Mqtt, it also allows for typical control, arm,disarm,stay,sleep.
-        </div>
-        <div>The TX from the alarm panel is connected to Wemos RX ((or)) gpio13(D7) The RX from the alarm panel is connected to Wemos TX ((or)) gpio15(D8) When using gpio13(D7) and gpio15(D8) set Serial_Swap 1</div>
-        <div class="d-flex justify-content-center">
-            <img src="https://community-assets.home-assistant.io/original/3X/f/a/fa1378986b8990c8443df8ce46f25cfaa3ea0293.jpeg"/>
-           
-        </div>
-        <div class="d-flex justify-content-center">Connect RX from panel to TX2 of the esp32</div>
-        <div class="d-flex justify-content-center">Connect TX from panel to RX2 of the esp32</div>
-        
-        <div>
-            <div>I have used a cross connection to the esp</div>
-            <div>Using wemos and buck converter</div>
-        </div>
-https://github.com/maragelis/ParadoxRs232toMqtt/blob/master/photos/wiring.png
 
-MQTT Topics are paradoxdCTL/out paradoxdCTL/status paradoxdCTL/in paradoxdCTL/hassio/Arm paradoxdCTL/hassio/Zone(x) where x 1-32 eg: paradoxdCTL/hassio/Zone1 paradoxdCTL/HomeKit
-
-To control the panel send a payload to topic --> /paradoxdCTL/in
-
-String Payload Trace=1 enables trace on gpio D4 OTA=1 enables over the air updates
-
-JSON Payload template { "password":"1234", "Command":"arm", "Subcommand":"0" }
-
-password is the user code used to arm disarm the alarm system.
-
-command can be any of the below values Numbering schema is from Apple Homekit
-"0","stay" which will Stay_Arm "1","arm" which will Full_Arm "2","sleep" which will Sleep_Arm "3","disarm" which will Disarm "PGM_ON","PGMON" = PGM on, PGM id in subcommand "PGM_OFF","PGMOFF" = PGM OFF, PGM id in subcommand "bypass" bypass zone needs Subcommand see below "setdate" sends current date time to panel "panelstatus" get status of panel eg battery, zones, armstatus, troubles.
-
-     (The controller disconnects every 15 sec and reconnects when needed 
-        live events are still sent to mqtt while the controller is disconnected)
-Subcommand: when arm,stay,sleep,disarm then Subcommand is partion "0" or "1" (if you only use 1 partion send "0") when bypass then Subcommand is ZONE 0-31 (0 index zone numbering) when PGM_ON or PGM_OFF Subcommand is PGM 0-31 when panelstatus Subcommand 0 * Timer_Loss * PowerTrouble * ACFailureTrouble * TelephoneLineTrouble * PSUDCVoltage * BatteryDCVoltage * BatteryTrouble * Current Zones status Subcommand 1 (bool) * Fire * Audible * Silent * AlarmFlg * StayFlg * SleepFlg * ArmFlg * zoneisbypassed * Current Arm State
-
-#define Section
-
-#define Hassio 1 --> 1 enables 0 disables Hassio-Openhab support
-#define HomeKit 0 --> enables homekit topic
-#define SendAllE0events 1 --> If you need all events set to 1 else 0
-#define SendEventDescriptions 1 --> If you need event decriptions in the message set to 1 else 0. Can cause slow downs on heavy systems.
-#define timezone 2.0 --> current timezone for setdate command.
-#define mqtt_user "username" --> mqtt broker username
-#define mqtt_password "password" --> mqtt broker password
-#define Serial_Swap 1 --> 1 uses D7 D8 for RX/TX.
-The incoming message: paradoxdCTL/in The message is broken down into a json message with "event" and "sub_event". and one more data attribute which is the zone/partition label.
-
-SEE Events.txt file for all events-sub_events descriptions or just enable SendEventDescriptions to receive in message. https://github.com/maragelis/ParadoxRs232toMqtt/blob/master/Events.txt
-    </div>
-</div>
+  
 </body>
    </head>
 </html>

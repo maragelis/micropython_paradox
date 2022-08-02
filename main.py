@@ -1,28 +1,21 @@
 import websrv
 import paradoxEvents
-import json
-import threading
-from machine import UART ,WDT
-from time import sleep
 import utils
 import ParadoxSubEvent
-
-
-
-
+gc.collect()
 
 print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
 
 
 replloopcnt=0
-while replloopcnt < 10:
+while replloopcnt <= 5:
     if repl_button.value() == 0:
         utils.trace("Dropping to REPL")
         sys.exit()
     else:
+        print(f"waiting for repl {5-replloopcnt} {'.' * replloopcnt} ")
         replloopcnt +=1
-        print(f"waiting for repl {10-replloopcnt} {'.' * replloopcnt} ")
-        sleep(1)
+        time.sleep(1)
         
     
             
@@ -145,7 +138,13 @@ def sub_cb(topic, msg):
         json_data = json.loads(strmsg.lower())
         if "esp_command" in json_data:
                 pass
-        
+        if "panel_command" in json_data:
+            if (str(json_data['panel_command']) == "setdate"):
+                set_panel_date(str(json_data['password']))
+            else:
+                client.publish(cfg.root_topicStatus, "unknown panel_command" )
+                
+                
         if ("command" in json_data):
             inmessage =inMessage()
             inmessage.command = json_data["command"]
@@ -394,13 +393,7 @@ def program_init(version):
 
 def panel_control(inCommand=inMessage()):
     
-    global PANEL_IS_LOGGED_IN
-    if not PANEL_IS_LOGGED_IN:
-        utils.trace(f"panel_control PANEL_IS_LOGGED_IN:{PANEL_IS_LOGGED_IN}")
-        panel_login(inCommand.panel_password)
-        utils.trace(f"panel_control PANEL_IS_LOGGED_IN:{PANEL_IS_LOGGED_IN}")
-    
-    
+    panel_login(inCommand.panel_password)
     panel_command = get_panel_command(inCommand.command)
     panel_subcommand = int(inCommand.subcommand) 
     armdata = bytearray(MESSAGE_LENGTH)
@@ -416,6 +409,32 @@ def panel_control(inCommand=inMessage()):
         
     if serialWrite(armdata):
         utils.trace("armdata written to serial")
+        
+    return True
+
+
+def set_panel_date(password):
+    print('set_panel_date')
+    panel_login(password)
+    ntptime.settime()
+    UTC_OFFSET = int(cfg.timezone) * 60 * 60
+    actual_time = time.localtime(time.time() + UTC_OFFSET)
+    datemsg = bytearray(MESSAGE_LENGTH)
+    datemsg[0] = 0x30
+    datemsg[4] = 0x21
+    datemsg[5] = actual_time[0]-2000
+    datemsg[6] = actual_time[1]
+    datemsg[7] = actual_time[2]
+    datemsg[8] = actual_time[3]
+    datemsg[9] = actual_time[4]
+    datemsg[33] = 0x05
+    
+    datemsg = checksum_calculate(datemsg)
+    #for x in range(MESSAGE_LENGTH):
+    #    utils.trace(f"[armdata{x}]={hex(armdata[x])}")
+        
+    if serialWrite(datemsg):
+        utils.trace(f"datemsg written to serial date:{str(time.localtime(time.time() + UTC_OFFSET))}")
         
     return True
 
@@ -551,7 +570,7 @@ def sendArmStatus(hass):
     #return arm_mesg.toJson() 
   
 
-KILL_THREAD=False
+
 Serial_loop_msg=False
 def serialloop():
     global LIFO,Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
@@ -568,7 +587,7 @@ def serialloop():
             if not PANEL_LOGIN_IN_PROGRESS:
               if serialRead():
                   serial_last_read = time.time()
-                  print(f"LIFO len:{len(LIFO)}")
+                  #print(f"LIFO len:{len(LIFO)}")
             
             
             if len(LIFO)>0 and (time.time() - serial_last_read > 5):
@@ -597,10 +616,8 @@ def serialloop():
                 
                 
             gc.collect()    
-            if KILL_THREAD:
-                break
+            
         except OSError as e:
-            KILL_THREAD=True
             restart_and_reconnect()
             
 try:
@@ -620,6 +637,5 @@ if __name__ == '__main__':
         utils.trace("Starting Webserver")
         websrv.runsrv()
     except:
-        KILL_THREAD=True
         restart_and_reconnect()
     

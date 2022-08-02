@@ -5,6 +5,8 @@ import os
 import machine
 import network
 import config
+
+
 cfg = config.configuration()
 
 _ipaddress=""
@@ -44,7 +46,7 @@ async def jsonconfig(request):
 
 @app.route('/config')
 async def config(request):
-    return send_file('html/test.html')
+    return send_file('html/config.html')
 
 @app.route('/savejson',methods=['POST'])
 async def savejson(request):
@@ -62,9 +64,8 @@ async def savejson(request):
         cfg.root_topicArmHomekit=request.form['root_topicArmHomekit']
         cfg.ESP_UART=int(request.form['ESP_UART'])
         cfg.controller_name=request.form['controller_name']
-        #cfg.telegram_enable =request.form['telegram_enable']
-        #cfg.telegram_token=request.form['telegram_token']
-        #cfg.telegram_messageid=request.form['telegram_messageid']
+        cfg.timezone=request.form['timezone']
+        
         f = open('config.json','w')
         f.write(cfg.toJson())
         f.close()

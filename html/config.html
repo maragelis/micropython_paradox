@@ -52,7 +52,7 @@
                   document.getElementById("root_topicHassioArm").value = jsonObj.root_topicHassioArm;
                   document.getElementById("root_topicHassio").value = jsonObj.root_topicHassio;
                   document.getElementById("root_topicArmHomekit").value = jsonObj.root_topicArmHomekit;
-                  
+                  document.getElementById("timezone").value = jsonObj.timezone;
                   document.getElementById("ESP_UART").value = jsonObj.ESP_UART;
                }
             }
@@ -123,6 +123,11 @@
          <tr>
             <td><div id = "ESP_UARTl">ESP_UART</div></td>
             <td><input name="ESP_UART" type="text" id="ESP_UART"></td>
+         </tr>
+
+         <tr>
+            <td><div id = "timezone1">Timezone</div></td>
+            <td><input name="timezone" type="text" id="timezone"></td>
          </tr>
       </table>
    
