@@ -16,7 +16,10 @@ This project uses a ESP32 to read the events of the serial bus on Paradox alarm 
 Connect the devices together:
 - Alarm system serial to ESP32 through RX2/TX2<br>
 
-## Arduino IDE settings
+## settings
+
+The config.json file contains all settings that can be eddited by the user.
+After connecting to wifi, config can be changed using http://ipaddress:5000
 
         
 The 37 byte message is broken down into a json message with "Event Group" and "Sub-group", and one more dummy attribute which is the zone/partition label.
