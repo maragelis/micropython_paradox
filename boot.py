@@ -34,15 +34,23 @@ station.active(True)
 led.value(station.isconnected())
 station.connect(ssid, password)
 
-
-while station.isconnected() == False:
+ti = time.time()
+while (time.time()-ti < 10) and (station.isconnected() == False):
   pass
 
-station.config(dhcp_hostname=cfg.controller_name)
-print(station.config('dhcp_hostname'))
-led.value(station.isconnected())
-print('Connection successful')
-print(station.ifconfig())
+if station.isconnected() == False:
+    print('Starting AP mode')
+    ap = network.WLAN(network.AP_IF)
+    ap.active(True)
+    ap.config(essid="paradox32CTL", password="configparadox",authmode=network.AUTH_WPA_WPA2_PSK)
+    print('AP Connection successful')
+    print(ap.ifconfig())
+else:
+    station.config(dhcp_hostname=cfg.controller_name)
+    print(station.config('dhcp_hostname'))
+    led.value(station.isconnected())
+    print('Connection successful')
+    print(station.ifconfig())
 
-#import webrepl
+    import webrepl
 #webrepl.start()

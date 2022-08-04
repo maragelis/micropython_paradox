@@ -138,14 +138,15 @@ def sub_cb(topic, msg):
         json_data = json.loads(strmsg.lower())
         if "esp_command" in json_data:
                 pass
-        if "panel_command" in json_data:
+        
+        elif "panel_command" in json_data:
             if (str(json_data['panel_command']) == "setdate"):
                 set_panel_date(str(json_data['password']))
             else:
                 client.publish(cfg.root_topicStatus, "unknown panel_command" )
                 
                 
-        if ("command" in json_data):
+        elif ("command" in json_data):
             inmessage =inMessage()
             inmessage.command = json_data["command"]
             inmessage.panel_password=""
@@ -154,7 +155,7 @@ def sub_cb(topic, msg):
             if "panel_password" in json_data:
                 fixed_password=str(json_data["panel_password"])
                 
-            if "password" in json_data:
+            elif "password" in json_data:
                 fixed_password=str(json_data["password"])
             
             if len(fixed_password)>=4:
@@ -333,10 +334,12 @@ def processMessage(serial_message):
             e.zone_name=serial_message[15:30].decode().strip()
             e.topic = cfg.root_topicHassio + "/zone" + str(serial_message[8])
             utils.trace(f"returning zoneJson  {e.toJson()}")
-            client.publish(e.topic, str(e.state))
+            client.publish(e.topic, str(e.state), True, 1 )
             
             e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
-            client.publish(e.topic, str(e.state))
+            client.publish(e.topic, str(e.state), True, 1 )
+            e.topic = cfg.root_topicStatus
+            client.publish(cfg.root_topicStatus, e.toJson())    
         
             
         elif (serial_message[7] == 48 and serial_message[8] == 3):
@@ -550,7 +553,8 @@ def sendArmStatusMQtt(hass):
         arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
         client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
     
-        
+    time.sleep(1)
+    client.publish(cfg.root_topicStatus, hass.toJson())    
     return arm_mesg.toJson() 
   
 def sendArmStatus(hass):
@@ -620,21 +624,22 @@ def serialloop():
         except OSError as e:
             restart_and_reconnect()
             
-try:
-  client = connect_and_subscribe()
-  client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
-  t1= threading.Thread(target=serialloop)
-  websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
-  
-
-except OSError as e:
-  restart_and_reconnect()
-
 
 if __name__ == '__main__':
     try:
-        t1.start()
-        utils.trace("Starting Webserver")
+        if station.isconnected() == True:
+            t1= threading.Thread(target=serialloop)
+            t2= threading.Thread(target=webrepl.start)
+            websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
+            print('Starting MQTT')
+            client = connect_and_subscribe()
+            client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
+        
+            print('Starting serial loop')
+            t1.start()
+            print('Starting webrepl thread')
+            t2.start()
+        print("Starting Webserver")
         websrv.runsrv()
     except:
         restart_and_reconnect()
