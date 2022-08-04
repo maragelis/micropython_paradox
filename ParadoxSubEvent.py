@@ -515,7 +515,7 @@ def getsubEvent(event,subevent):
 
 
     
-    elif subevent == 48:
+    elif event == 48:
         if subevent == 0:
             return "System power up"
         elif subevent ==1:
