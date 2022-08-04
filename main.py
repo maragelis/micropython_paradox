@@ -5,7 +5,7 @@ import ParadoxSubEvent
 gc.collect()
 
 print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
-
+led.value(False)
 
 replloopcnt=0
 while replloopcnt <= 5:
@@ -242,7 +242,11 @@ def serialWrite(byteMessage):
     if buffer_count==MESSAGE_LENGTH:
         return True
     else:
-        return False
+        buffer_count = paradoxserial.write(byteMessage)
+        if buffer_count==MESSAGE_LENGTH:
+            return True
+        else:
+            return False
     
     
 def updateArmStatus(event, sub_event, partition):
@@ -396,11 +400,12 @@ def program_init(version):
 
 def panel_control(inCommand=inMessage()):
     
-    panel_login(inCommand.panel_password)
+    #panel_login(inCommand.panel_password)
     
     if PANEL_IS_LOGGED_IN ==False:
         panel_login(inCommand.panel_password)
-        
+    
+    
     panel_command = get_panel_command(inCommand.command)
     panel_subcommand = int(inCommand.subcommand) 
     armdata = bytearray(MESSAGE_LENGTH)
@@ -511,7 +516,7 @@ def panel_login(panel_password):
         PANEL_IS_LOGGED_IN=True
     
     PANEL_LOGIN_IN_PROGRESS=False
-
+    time.sleep(1)
 
 
 
@@ -631,6 +636,7 @@ def serialloop():
 
 if __name__ == '__main__':
     try:
+        
         if station.isconnected() == True:
             t1= threading.Thread(target=serialloop)
             t2= threading.Thread(target=webrepl.start)
@@ -641,6 +647,7 @@ if __name__ == '__main__':
         
             print('Starting serial loop')
             t1.start()
+            led.value(True)
             print('Starting webrepl thread')
             t2.start()
         print("Starting Webserver")
