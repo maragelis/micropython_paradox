@@ -536,7 +536,6 @@ def getsubEvent(event,subevent):
             return "Closing delinquency delay elapsed"
         elif subevent ==9:
             return "Any special even"
-        
         else:
             return ""
 
