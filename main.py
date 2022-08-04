@@ -397,6 +397,10 @@ def program_init(version):
 def panel_control(inCommand=inMessage()):
     
     panel_login(inCommand.panel_password)
+    
+    if PANEL_IS_LOGGED_IN ==False:
+        panel_login(inCommand.panel_password)
+        
     panel_command = get_panel_command(inCommand.command)
     panel_subcommand = int(inCommand.subcommand) 
     armdata = bytearray(MESSAGE_LENGTH)

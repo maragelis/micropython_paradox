@@ -193,7 +193,38 @@ def getsubEvent(event,subevent):
             return ""
 
 
-    
+    elif event == 26:
+        if subevent == 0:
+            return "Non-valid source ID"
+        elif subevent ==1:
+            return "WinLoad/BabyWare direct"
+        elif subevent ==2:
+            return "WinLoad/BabyWare through IP module"
+        elif subevent ==3:
+            return "WinLoad/BabyWare through GSM module"
+        elif subevent ==4:
+            return "WinLoad/BabyWare through modem"
+        
+        elif subevent ==5:
+            return "NEware direct"
+        elif subevent ==6:
+            return "NEware through IP module"
+        elif subevent ==7:
+            return "NEware through GSM module"
+        elif subevent ==8:
+            return "NEware through modem"
+        elif subevent ==9:
+            return "IP100 direct"
+        elif subevent ==10:
+            return "VDMP3 direct"
+        elif subevent ==11:
+            return "Voice through GSM module"
+        elif subevent ==12:
+            return "Remote access"
+        elif subevent ==13:
+            return "SMS through GSM module"
+        elif subevent ==99:
+            return "Any software access"
 
     elif event == 30:
         if subevent == 0: 
