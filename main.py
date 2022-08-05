@@ -704,16 +704,7 @@ def sendArmStatusMQtt(hass):
   
 def sendArmStatus(hass):
     utils.trace(f"SENDING ARM STATUS {hass}")
-    arm_mesg=arm_message()
-    arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
-    arm_mesg.Armstatus =  hass.intArmStatus
-    arm_mesg.ArmStatusD = hass.stringArmStatus
-    #client.publish(arm_mesg.topic,hass.stringArmStatus, True, 1 )
     
-    arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
-    #client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
-    
-    LIFO.append(hass.HomeKit)
     LIFO.append(hass)
     print(f"Added to LIFO {hass.HomeKit}")
     #return arm_mesg.toJson() 
@@ -745,24 +736,12 @@ def serialloop():
             if len(LIFO)>0 and (time.time() - serial_last_read > 5):
                 LIFO = list(set(LIFO))
                 print(f"LIFO is {LIFO}")
-                if ("NA" or "SA") in LIFO:
-                    message_sent=False
-                    for i in LIFO:
+                for i in LIFO:
                         if not isinstance(i, str):
-                            
-                            if  (i.HomeKit == "NA" or i.HomeKit == "SA"):
-                                print(f"LIFO LOOP sending {i}")
-                                sendArmStatusMQtt(i)
-                                
-                
-                else:
-                    print(f"entered lifo > 0 with AA {LIFO}")
-                    for i in LIFO:
-                        
-                        if not isinstance(i, str):
-                            print(f"LIFO_AA is {i}")
                             sendArmStatusMQtt(i)
-                    
+                            
+                            
+               
                 print("cleared LIFO")
                 LIFO.clear()   
                 
