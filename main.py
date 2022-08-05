@@ -712,6 +712,11 @@ def sendArmStatus(hass):
 def timer_tick(timer):
     #print('timer ticked')
     client.ping()
+    led.value(True)
+    time.sleep(0.5)
+    led.value(False)
+    
+    
 
 Serial_loop_msg=False
 def serialloop():
@@ -720,7 +725,7 @@ def serialloop():
     wdt = WDT(timeout=10000)
     while True:
         wdt.feed()
-        led.value(True)
+        
         try:
             
             client.check_msg()
@@ -747,7 +752,7 @@ def serialloop():
                 
                 
             gc.collect()
-            led.value(False)
+            
             
         except OSError as e:
             print(e)
