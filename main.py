@@ -771,8 +771,8 @@ if __name__ == '__main__':
             print('Starting serial loop')
             t1.start()
             
-            print('Starting webrepl thread')
-            t2.start()
+        print('Starting webrepl thread')
+        t2.start()
         print("Starting Webserver")
         websrv.runsrv()
     except:
