@@ -1,7 +1,4 @@
-try:
-    import usocket as socket
-except:
-    import socket
+import usocket as socket
 import ustruct as struct
 from ubinascii import hexlify
 
@@ -27,7 +24,7 @@ class MQTTClient:
         self.keepalive = keepalive
         self.lw_topic = None
         self.lw_msg = None
-        self.lw_qos = 1
+        self.lw_qos = 0
         self.lw_retain = False
 
     def _send_str(self, s):

@@ -1,5 +1,5 @@
 import time
-from mqtt import MQTTClient
+from umqtt.simple import MQTTClient
 import ubinascii
 import machine
 import micropython

@@ -19,7 +19,7 @@ while replloopcnt <= 5:
         
     
             
-VERSION="1.5"
+VERSION="1.6"
 
 SEND_ALL_EVENTS = True
 
@@ -179,11 +179,12 @@ def sub_cb(topic, msg):
 
 def connect_and_subscribe():
   global client_id, mqtt_server, topic_sub
-  client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword)
-  #client.set_last_will(f"{cfg.controller_name}/lwt","true")
+  client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword,keepalive=30)
   client.set_callback(sub_cb)
+  client.set_last_will(f"{cfg.controller_name}/reachable","false")
   client.connect()
   client.subscribe(topic_sub)
+  client.publish(f"{cfg.controller_name}/reachable","true")
   utils.trace('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub))
   return client
 
@@ -330,6 +331,8 @@ def processMessage(serial_message):
         
         
         if serial_message[7] == 0 or serial_message[7]==1:
+            
+            
             utils.trace("E0 Zone Message receivied")
             e = zone_message()
             e.zone=serial_message[8]
