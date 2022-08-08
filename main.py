@@ -247,6 +247,9 @@ def serialRead():
             utils.trace(f"serialRead has data {paradoxserial.any()}")
             paradoxserial.readinto(MESSAGE)
             
+            if (MESSAGE[7] == 3 and MESSAGE[8] <=1):
+                return True
+            
             processMessage(MESSAGE)
             if SEND_ALL_EVENTS:
                 get_event_data(MESSAGE)
@@ -282,6 +285,17 @@ def serialReadWriteQuick(byteMessage):
         
 
 def serialWrite(byteMessage):
+    wcnt =0 ;
+    while paradoxserial.write(byteMessage) != MESSAGE_LENGTH:
+        wcnt = wcnt +1
+        time.sleep(1)
+        if wcnt > 5:
+            return False
+        else:
+            return True
+    
+    
+    '''
     buffer_count = paradoxserial.write(byteMessage)
     if buffer_count==MESSAGE_LENGTH:
         return True
@@ -291,6 +305,7 @@ def serialWrite(byteMessage):
             return True
         else:
             return False
+    '''
     
     
 def updateArmStatus(event, sub_event, partition):
@@ -729,12 +744,12 @@ def serialloop():
         try:
             
             client.check_msg()
-            if PANEL_LOGIN_IN_PROGRESS != Serial_loop_msg:
-                  print(f"PANEL_LOGIN_IN_PROGRESS Status changed to {PANEL_LOGIN_IN_PROGRESS}")
-                  Serial_loop_msg=PANEL_LOGIN_IN_PROGRESS
-            if not PANEL_LOGIN_IN_PROGRESS:
-              if serialRead():
-                  serial_last_read = time.time()
+            #if PANEL_LOGIN_IN_PROGRESS != Serial_loop_msg:
+            #      print(f"PANEL_LOGIN_IN_PROGRESS Status changed to {PANEL_LOGIN_IN_PROGRESS}")
+            #      Serial_loop_msg=PANEL_LOGIN_IN_PROGRESS
+            #if not PANEL_LOGIN_IN_PROGRESS:
+            if serialRead():
+                serial_last_read = time.time()
                   #print(f"LIFO len:{len(LIFO)}")
             
             
