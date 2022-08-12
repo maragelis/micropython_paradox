@@ -7,6 +7,7 @@ import network
 import json
 import threading
 from machine import UART ,WDT
+import os
 import ntptime
 import esp
 import config

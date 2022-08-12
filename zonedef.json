@@ -1,0 +1,26 @@
+{
+    "zone1":{"enabled":true,"name":"front_door"},
+    "zone2":{"enabled":true,"name":"livingroom_motion"},
+    "zone3":{"enabled":true,"name":"kidsbedroom_motion"},
+    "zone4":{"enabled":true,"name":"hallway_motion"},
+    "zone5":{"enabled":true,"name":"livingroom_shades"},
+    "zone6":{"enabled":true,"name":"bathroomS_window"},
+    "zone7":{"enabled":true,"name":"kids_shades"},
+    "zone8":{"enabled":true,"name":"lab_shades"},
+    "zone9":{"enabled":false,"name":"z9"},
+    "zone10":{"enabled":false,"name":"z10"},
+    "zone11":{"enabled":false,"name":"z11"},
+    "zone12":{"enabled":false,"name":"z12"},
+    "zone13":{"enabled":false,"name":"z13"},
+    "zone14":{"enabled":false,"name":"z14"},
+    "zone15":{"enabled":true,"name":"button"},
+    "zone16":{"enabled":true,"name":"bell"},
+    "zone17":{"enabled":true,"name":"door2"},
+    "zone18":{"enabled":true,"name":"diningroom_motion"},
+    "zone19":{"enabled":true,"name":"bedroom_motion"},
+    "zone20":{"enabled":true,"name":"diningroom_shades"}
+    "zone21":{"enabled":true,"name":"bedroom_shades"}
+    "zone22":{"enabled":true,"name":"kitchen_shades"}
+    "zone23":{"enabled":true,"name":"bathroomL_window"}
+    "zone24":{"enabled":true,"name":"smarthome"}
+}

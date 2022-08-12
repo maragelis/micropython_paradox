@@ -26,6 +26,13 @@ tim1 = machine.Timer(0)
 
 #wdt = WDT(timeout=10000)
 
+zonedef={}
+
+if "zonedef.json" in os.listdir():
+    print ("Loading zone def")
+    with open('zonedef.json') as json_file:
+        zonedef = json.load(json_file)
+
 
 client_id = ubinascii.hexlify(machine.unique_id())
 topic_sub = cfg.root_topicIn
@@ -134,6 +141,7 @@ class zone_message:
     state=""
     Partition_Number=0
     topic=""
+    zone_def=""
     
     def toJson(self):
         return json.dumps(self.__dict__)
@@ -405,6 +413,12 @@ def processMessage(serial_message):
             e.Partition_Number=serial_message[9]
             e.zone_name=serial_message[15:30].decode().strip()
             e.topic = f"{cfg.controller_name}/zones/zone{str(serial_message[8])}"
+            
+            zonename=f"zone{str(serial_message[8])}"
+            if zonename in zonedef:
+                e.zone_def=zonedef[zonename]["name"]
+                e.topic = f"{cfg.controller_name}/zones/{e.zone_def}"
+                
             utils.trace(f"returning zoneJson  {e.toJson()}")
             client.publish(e.topic, str(e.state), True, 1 )
             
@@ -534,11 +548,16 @@ def process_status_0_zones(inData):
         for j in range( 0 , 8):
             zcnt = zcnt+1
             Zonename = "zone" + str(zcnt)
-            zonemq[Zonename] =  (inData[i]>>j)&1
+            if Zonename in zonedef:
+                if zonedef[Zonename]["enabled"] == True:
+                    zonemq[zonedef[Zonename]["name"]] =  (inData[i]>>j)&1
+            else:
+                zonemq[Zonename] =  (inData[i]>>j)&1
     
     for k in zonemq:
         msg = "ON" if zonemq[k] == 1 else "OFF" 
         client.publish(f"{cfg.controller_name}/zones/{k}",msg,True,1)
+            
         #time.sleep(0.2)
         #client.publish(f"{cfg.root_topicArmHomekit}/{k}",msg,True,1)
         
