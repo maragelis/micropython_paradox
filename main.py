@@ -19,7 +19,7 @@ while replloopcnt <= 5:
         
     
             
-VERSION="1.6"
+VERSION="1.6.202208120955"
 
 SEND_ALL_EVENTS = True
 tim1 = machine.Timer(0)
@@ -223,10 +223,10 @@ def connect_and_subscribe():
   global client_id, mqtt_server, topic_sub
   client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword,keepalive=30)
   client.set_callback(sub_cb)
-  client.set_last_will(f"{cfg.controller_name}/reachable","false")
+  client.set_last_will(f"{cfg.controller_name}/reachable","false",retain=True)
   client.connect()
   client.subscribe(topic_sub)
-  client.publish(f"{cfg.controller_name}/reachable","true")
+  client.publish(f"{cfg.controller_name}/reachable","true",retain=True)
   utils.trace('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub))
   return client
 
@@ -404,12 +404,12 @@ def processMessage(serial_message):
             e.state="ON" if serial_message[7] == 1 else "OFF" 
             e.Partition_Number=serial_message[9]
             e.zone_name=serial_message[15:30].decode().strip()
-            e.topic = cfg.root_topicHassio + "/zone" + str(serial_message[8])
+            e.topic = f"{cfg.controller_name}/zones/zone{str(serial_message[8])}"
             utils.trace(f"returning zoneJson  {e.toJson()}")
             client.publish(e.topic, str(e.state), True, 1 )
             
-            e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
-            client.publish(e.topic, str(e.state), True, 1 )
+            #e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
+            #client.publish(e.topic, str(e.state), True, 1 )
             e.topic = cfg.root_topicStatus
             client.publish(cfg.root_topicStatus, e.toJson())    
         
@@ -533,8 +533,14 @@ def process_status_0_zones(inData):
     for i in range(19, 22):
         for j in range( 0 , 8):
             zcnt = zcnt+1
-            Zonename = "Z" + str(zcnt)
+            Zonename = "zone" + str(zcnt)
             zonemq[Zonename] =  (inData[i]>>j)&1
+    
+    for k in zonemq:
+        msg = "ON" if zonemq[k] == 1 else "OFF" 
+        client.publish(f"{cfg.controller_name}/zones/{k}",msg,True,1)
+        #time.sleep(0.2)
+        #client.publish(f"{cfg.root_topicArmHomekit}/{k}",msg,True,1)
         
         
     mqmsg = json.dumps(zonemq)   
