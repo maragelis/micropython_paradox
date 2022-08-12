@@ -19,6 +19,7 @@ class configuration:
     root_topicArmHomekit=""
     ESP_UART=0
     controller_name="Paradox32CTL"
+    timezone = 2
     
     
     def readconfig():
@@ -51,8 +52,10 @@ class configuration:
             self.root_topicArmHomekit=self.controller_name + jsonf["root_topicArmHomekit"]
             self.root_topicIn=self.controller_name + jsonf["root_topicIn"]
             self.ESP_UART=jsonf["ESP_UART"]
+            self.timezone=jsonf["timezone"]
                 
     
+
         
 
 

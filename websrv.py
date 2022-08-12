@@ -1,10 +1,14 @@
 
 import uasyncio as asyncio
-from microdot_asyncio import Microdot, send_file
+from microdot_asyncio import Microdot, send_file, redirect
 import os
 import machine
 import network
 import config
+from time import sleep
+import _thread
+
+
 cfg = config.configuration()
 
 _ipaddress=""
@@ -33,10 +37,19 @@ async def index(request):
     #response = htmlstr
     return htmlstr, 200, {'Content-Type': 'text/html'}
 
+def reset_machine():
+    sleep(5)
+    machine.reset()
+    
+def softreset_machine():
+    sleep(5)
+    machine.soft_reset()
+
 @app.route('/reset')
 async def reset(request):
-    machine.reset()
+    treset = _thread.start_new_thread(reset_machine,())
     return redirect('/')
+    
 
 @app.route('/jsonconfig')
 async def jsonconfig(request):
@@ -44,7 +57,7 @@ async def jsonconfig(request):
 
 @app.route('/config')
 async def config(request):
-    return send_file('html/test.html')
+    return send_file('html/config.html')
 
 @app.route('/savejson',methods=['POST'])
 async def savejson(request):
@@ -62,9 +75,8 @@ async def savejson(request):
         cfg.root_topicArmHomekit=request.form['root_topicArmHomekit']
         cfg.ESP_UART=int(request.form['ESP_UART'])
         cfg.controller_name=request.form['controller_name']
-        #cfg.telegram_enable =request.form['telegram_enable']
-        #cfg.telegram_token=request.form['telegram_token']
-        #cfg.telegram_messageid=request.form['telegram_messageid']
+        cfg.timezone=request.form['timezone']
+        
         f = open('config.json','w')
         f.write(cfg.toJson())
         f.close()
@@ -73,17 +85,20 @@ async def savejson(request):
     except:
         return "ERROR SAVING <a href='/config'>Return to config</a>",200,"text/html"
         
-    
-    
 
+@app.route('/test')
+async def testsave(request):
+    return send_file('html/test.html')
+
+    
 
 @app.route('/Soft_reset')
 async def Soft_reset(request):
-    machine.soft_reset()
+    treset = _thread.start_new_thread(softreset_machine,())
     return redirect('/')
 
 async def main():
-    await app.start_server(debug=True)
+    await app.start_server(debug=True,port=80)
 
 def runsrv():
     asyncio.run(main())

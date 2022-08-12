@@ -1,0 +1,148 @@
+<html>
+   <head>
+      <meta content = "text/html; charset = ISO-8859-1" http-equiv = "content-type">
+      <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+      -->
+		
+      <script type = "application/javascript">
+
+         loadJSON()
+
+         function loadJSON() {
+            var data_file = "jsonconfig";
+            var http_request = new XMLHttpRequest();
+            try{
+               // Opera 8.0+, Firefox, Chrome, Safari
+               http_request = new XMLHttpRequest();
+            }catch (e) {
+               // Internet Explorer Browsers
+               try{
+                  http_request = new ActiveXObject("Msxml2.XMLHTTP");
+					
+               }catch (e) {
+				
+                  try{
+                     http_request = new ActiveXObject("Microsoft.XMLHTTP");
+                  }catch (e) {
+                     // Something went wrong
+                     alert("Your browser broke!");
+                     return false;
+                  }
+					
+               }
+            }
+			
+            http_request.onreadystatechange = function() {
+			
+               if (http_request.readyState == 4  ) {
+                  // Javascript function JSON.parse to parse JSON data
+                  var jsonObj = JSON.parse(http_request.responseText);
+
+                  // jsonObj variable now contains the data structure and can
+                  // be accessed as jsonObj.name and jsonObj.country.
+                  document.getElementById("controller_name").value = jsonObj.controller_name;
+                  document.getElementById("wifissid").value = jsonObj.wifissid;
+                  document.getElementById("wifipassword").value = jsonObj.wifipassword;
+                  document.getElementById("mqttserver").value = jsonObj.mqttserver;
+                  document.getElementById("mqttusername").value = jsonObj.mqttusername;
+                  document.getElementById("mqttpassword").value = jsonObj.mqttpassword;
+                  document.getElementById("root_topicOut").value = jsonObj.root_topicOut;
+                  document.getElementById("root_topicStatus").value = jsonObj.root_topicStatus;
+                  document.getElementById("root_topicIn").value = jsonObj.root_topicIn;
+                  document.getElementById("root_topicHassioArm").value = jsonObj.root_topicHassioArm;
+                  document.getElementById("root_topicHassio").value = jsonObj.root_topicHassio;
+                  document.getElementById("root_topicArmHomekit").value = jsonObj.root_topicArmHomekit;
+                  document.getElementById("timezone").value = jsonObj.timezone;
+                  document.getElementById("ESP_UART").value = jsonObj.ESP_UART;
+               }
+            }
+			
+            http_request.open("GET", data_file, true);
+            http_request.send();
+         }
+		
+      </script>
+	
+      <title>tutorialspoint.com JSON</title>
+   </head>
+	
+   <body>
+      <h1>CONFIG Page</h1>
+		<form action="savejson" method="post">
+      <table class = "src">
+         <tr><th>variable</th><th>value</th></tr>
+         <tr>
+            <td><div id = "controller_namel">controller_name</div></td>
+            <td><input name="controller_name" type="text" id="controller_name"></td>
+         </tr>
+         <tr>
+            <td><div id = "wifissidl">wifissid</div></td>
+            <td><input name="wifissid" type="text" id="wifissid"></td>
+         </tr>
+         <tr>
+            <td><div id = "wifipasswordl">wifipassword</div></td>
+            <td><input name="wifipassword" type="text" id="wifipassword"></td>
+         </tr>
+         <tr>
+            <td><div id = "mqttserverl">mqttserver</div></td>
+            <td><input name="mqttserver" type="text" id="mqttserver"></td>
+         </tr>
+         <tr>
+            <td><div id = "mqttusernamel">mqttusername</div></td>
+            <td><input name="mqttusername" type="text" id="mqttusername"></td>
+         </tr>
+         <tr>
+            <td><div id = "mqttpasswordl">mqttpassword</div></td>
+            <td><input name="mqttpassword" type="text" id="mqttpassword"></td>
+         </tr>
+         <tr>
+            <td><div id = "root_topicOutl">root_topicOut</div></td>
+            <td><input name="root_topicOut" type="text" id="root_topicOut"></td>
+         </tr>
+         <tr>
+            <td><div id = "root_topicStatusl">root_topicStatus</div></td>
+            <td><input name="root_topicStatus" type="text" id="root_topicStatus"></td>
+         </tr>
+         <tr>
+            <td><div id = "root_topicInl">root_topicIn</div></td>
+            <td><input name="root_topicIn" type="text" id="root_topicIn"></td>
+         </tr>
+         <tr>
+            <td><div id = "root_topicHassioArml">root_topicHassioArm</div></td>
+            <td><input name="root_topicHassioArm" type="text" id="root_topicHassioArm"></td>
+         </tr>
+         <tr>
+            <td><div id = "root_topicHassiol">root_topicHassio</div></td>
+            <td><input name="root_topicHassio" type="text" id="root_topicHassio"></td>
+         </tr>
+         <tr>
+            <td><div id = "root_topicArmHomekitl">root_topicArmHomekit</div></td>
+            <td><input name="root_topicArmHomekit" type="text" id="root_topicArmHomekit"></td>
+         </tr>
+         
+         <tr>
+            <td><div id = "ESP_UARTl">ESP_UART</div></td>
+            <td><input name="ESP_UART" type="text" id="ESP_UART"></td>
+         </tr>
+
+         <tr>
+            <td><div id = "timezone1">Timezone</div></td>
+            <td><input name="timezone" type="text" id="timezone"></td>
+         </tr>
+
+         <tr>
+            <td><div id = "timezone1">WEBREPL</div></td>
+            <td><input name="WEBREPL" type="text" id="WEBREPL" value="WebREPLport:8266 password:7089" readonly></td>
+         </tr>
+      </table>
+   
+
+      <div class = "central">
+         <!--<button type = "button" onclick = "loadJSON()">Update Details </button>-->
+         <button type="submit" class="btn btn-outline-danger">Save Config</button>
+         <a href="/"><button type="button" class="btn btn-outline-primary">Return to Home page</button></a>
+      </div>
+   </form>
+   </body>
+		
+</html>

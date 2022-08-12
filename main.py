@@ -1,37 +1,37 @@
 import websrv
 import paradoxEvents
-import json
-import threading
-from machine import UART ,WDT
-from time import sleep
 import utils
 import ParadoxSubEvent
-
-
-
-
+gc.collect()
 
 print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
-
+led.value(False)
 
 replloopcnt=0
-while replloopcnt < 10:
+while replloopcnt <= 5:
     if repl_button.value() == 0:
         utils.trace("Dropping to REPL")
         sys.exit()
     else:
+        print(f"waiting for repl {5-replloopcnt} {'.' * replloopcnt} ")
         replloopcnt +=1
-        print(f"waiting for repl {10-replloopcnt} {'.' * replloopcnt} ")
-        sleep(1)
+        time.sleep(1)
         
     
             
-VERSION="1.5"
+VERSION="1.6.202208120955"
 
 SEND_ALL_EVENTS = True
-
+tim1 = machine.Timer(0)
 
 #wdt = WDT(timeout=10000)
+
+zonedef={}
+
+if "zonedef.json" in os.listdir():
+    print ("Loading zone def")
+    with open('zonedef.json') as json_file:
+        zonedef = json.load(json_file)
 
 
 client_id = ubinascii.hexlify(machine.unique_id())
@@ -64,6 +64,33 @@ PANEL_LOGIN_IN_PROGRESS=False
 
 LIFO=[]
 
+class status_0:
+    def __init__(self):
+        self.Timer_Loss = ""
+        self.PowerTrouble  = ""
+        self.ACFailureTroubleIndicator = ""
+        self.NoLowBatteryTroubleIndicator = ""
+        self.TelephoneLineTroubleIndicator = ""
+        self.ACInputDCVoltageLevel = ""
+        self.PowerSupplyDCVoltageLevel =""
+        self.BatteryDCVoltageLevel=""
+        
+    def toJson(self):
+        return json.dumps(self.__dict__)
+    
+class status_1:
+    def __init__(self):
+        self.Fire=False
+        self.Audible=False
+        self.Silent=False
+        self.AlarmFlg=False
+        self.StayFlg=False
+        self.SleepFlg=False
+        self.ArmFlg=False
+        
+    def toJson(self):
+        return json.dumps(self.__dict__)
+        
 class paradoxArm:
     intArmStatus=0
     stringArmStatus=""
@@ -114,6 +141,7 @@ class zone_message:
     state=""
     Partition_Number=0
     topic=""
+    zone_def=""
     
     def toJson(self):
         return json.dumps(self.__dict__)
@@ -124,6 +152,9 @@ class inMessage:
     panel_password=""
     command= ""
     subcommand="0"
+    
+    def toJson(self):
+        return json.dumps(self.__dict__)
         
     def __str__(self):
         return f"panel_password:{self.panel_password}, command:{self.command}, subcommand:{self.subcommand}"
@@ -142,11 +173,30 @@ def sub_cb(topic, msg):
     utils.trace((topic, msg))
     if topic == bytes(cfg.root_topicIn,"utf-8") :
         strmsg = msg.decode("utf-8")
-        json_data = json.loads(strmsg.lower())
+        try:
+            json_data = json.loads(strmsg.lower())
+        except ValueError as e:
+            client.publish(cfg.root_topicStatus, "malformatted json message try {'command':'arm','password':'1234'}" )
+            return
+            
         if "esp_command" in json_data:
                 pass
         
-        if ("command" in json_data):
+        elif "panel_command" in json_data:
+            if (str(json_data['panel_command']) == "setdate"):
+                set_panel_date(str(json_data['password']))
+                
+            elif (str(json_data['panel_command']) == "status_0"):
+                panel_status_0(str(json_data['password']))
+                
+            elif (str(json_data['panel_command']) == "status_1"):
+                panel_status_1(str(json_data['password']))
+                
+            else:
+                client.publish(cfg.root_topicStatus, "unknown panel_command" )
+                
+                
+        elif ("command" in json_data):
             inmessage =inMessage()
             inmessage.command = json_data["command"]
             inmessage.panel_password=""
@@ -155,7 +205,7 @@ def sub_cb(topic, msg):
             if "panel_password" in json_data:
                 fixed_password=str(json_data["panel_password"])
                 
-            if "password" in json_data:
+            elif "password" in json_data:
                 fixed_password=str(json_data["password"])
             
             if len(fixed_password)>=4:
@@ -179,11 +229,12 @@ def sub_cb(topic, msg):
 
 def connect_and_subscribe():
   global client_id, mqtt_server, topic_sub
-  client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword)
-  #client.set_last_will(f"{cfg.controller_name}/lwt","true")
+  client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword,keepalive=30)
   client.set_callback(sub_cb)
+  client.set_last_will(f"{cfg.controller_name}/reachable","false",retain=True)
   client.connect()
   client.subscribe(topic_sub)
+  client.publish(f"{cfg.controller_name}/reachable","true",retain=True)
   utils.trace('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub))
   return client
 
@@ -204,6 +255,9 @@ def serialRead():
             utils.trace(f"serialRead has data {paradoxserial.any()}")
             paradoxserial.readinto(MESSAGE)
             
+            if (MESSAGE[7] == 3 and MESSAGE[8] <=1):
+                return True
+            
             processMessage(MESSAGE)
             if SEND_ALL_EVENTS:
                 get_event_data(MESSAGE)
@@ -212,6 +266,7 @@ def serialRead():
         else:
             return False
     except OSError as e:
+        print(e)
         restart_and_reconnect()
     #sleep(0.5)
         
@@ -238,11 +293,27 @@ def serialReadWriteQuick(byteMessage):
         
 
 def serialWrite(byteMessage):
+    wcnt =0 ;
+    while paradoxserial.write(byteMessage) != MESSAGE_LENGTH:
+        wcnt = wcnt +1
+        time.sleep(1)
+        if wcnt > 5:
+            return False
+        else:
+            return True
+    
+    
+    '''
     buffer_count = paradoxserial.write(byteMessage)
     if buffer_count==MESSAGE_LENGTH:
         return True
     else:
-        return False
+        buffer_count = paradoxserial.write(byteMessage)
+        if buffer_count==MESSAGE_LENGTH:
+            return True
+        else:
+            return False
+    '''
     
     
 def updateArmStatus(event, sub_event, partition):
@@ -316,9 +387,16 @@ def processMessage(serial_message):
     utils.trace(f"processMessage serial_message is {hex(serial_message[0])} - {serial_message[0]}c ")
     #for x in range(MESSAGE_LENGTH):
     #    utils.trace(f"[serial_message{x}]={hex(serial_message[x])}")
-       
-    utils.trace(f"FIXED serial_message[0] {hex(serial_message[0] & 0xF0)} - {serial_message[0] & 0xF0}c ")    
-    if serial_message[0] & 0xF0 == 0xE0 :
+     
+    utils.trace(f"FIXED serial_message[0] {hex(serial_message[0] & 0xF0)} - {serial_message[0] & 0xF0}c ")
+    if serial_message[0] & 0xF0 == 0x50 and serial_message[3] == 0x00:
+        process_status_0_message(serial_message)
+        process_status_0_zones(serial_message)
+        
+    elif serial_message[0] & 0xF0 == 0x50 and serial_message[3] == 0x01:
+        process_status_1_message(serial_message)
+        
+    elif serial_message[0] & 0xF0 == 0xE0 :
         utils.trace(f"Entired 0xE")
         event=serial_message[7]
         sub_event=serial_message[8]
@@ -326,18 +404,28 @@ def processMessage(serial_message):
         
         
         if serial_message[7] == 0 or serial_message[7]==1:
+            
+            
             utils.trace("E0 Zone Message receivied")
             e = zone_message()
             e.zone=serial_message[8]
             e.state="ON" if serial_message[7] == 1 else "OFF" 
             e.Partition_Number=serial_message[9]
             e.zone_name=serial_message[15:30].decode().strip()
-            e.topic = cfg.root_topicHassio + "/zone" + str(serial_message[8])
-            utils.trace(f"returning zoneJson  {e.toJson()}")
-            client.publish(e.topic, str(e.state))
+            e.topic = f"{cfg.controller_name}/zones/zone{str(serial_message[8])}"
             
-            e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
-            client.publish(e.topic, str(e.state))
+            zonename=f"zone{str(serial_message[8])}"
+            if zonename in zonedef:
+                e.zone_def=zonedef[zonename]["name"]
+                e.topic = f"{cfg.controller_name}/zones/{e.zone_def}"
+                
+            utils.trace(f"returning zoneJson  {e.toJson()}")
+            client.publish(e.topic, str(e.state), True, 1 )
+            
+            #e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
+            #client.publish(e.topic, str(e.state), True, 1 )
+            e.topic = cfg.root_topicStatus
+            client.publish(cfg.root_topicStatus, e.toJson())    
         
             
         elif (serial_message[7] == 48 and serial_message[8] == 3):
@@ -384,7 +472,101 @@ def processMessage(serial_message):
         
     utils.trace(f"Ended processMessage")
       
+def panel_status_0(panel_password):
+    
+    if PANEL_IS_LOGGED_IN ==False:
+        panel_login(panel_password)
+        
+    statusdata = bytearray(MESSAGE_LENGTH)
+    statusdata[0] = 0x50
+    statusdata[1] = 0x00
+    statusdata[2] = 0x80
+    statusdata[3] = 0x00
+    statusdata[33] = 0x05
+    statusdata = checksum_calculate(statusdata)
+    if serialWrite(statusdata):
+        utils.trace("armdata written to serial")
+        
+    return True
+
+
+def panel_status_1(panel_password):
+    if PANEL_IS_LOGGED_IN ==False:
+        panel_login(panel_password)
+        
+    statusdata = bytearray(MESSAGE_LENGTH)
+
+
+    statusdata[0] = 0x50;
+    statusdata[1] = 0x00;
+    statusdata[2] = 0x80;
+    statusdata[3] = 0x01;
+    statusdata[33] = 0x05;
+    statusdata = checksum_calculate(statusdata)
+    if serialWrite(statusdata):
+        utils.trace("armdata written to serial")
+        
+    return True
+
+
+        
+
+def process_status_1_message(inData):
+    
+    statusmsg = status_1()
+    statusmsg.Fire= (inData[17]>>7)&1
+    statusmsg.Audible=(inData[17]>>6)&1
+    statusmsg.Silent=(inData[17]>>5)&1
+    statusmsg.AlarmFlg=(inData[17]>>4)&1
+    statusmsg.StayFlg=(inData[17]>>2)&1
+    statusmsg.SleepFlg=(inData[17]>>1)&1
+    statusmsg.ArmFlg=(inData[17]>>0)&1
+ 
+    client.publish(f"{cfg.controller_name}/status_message_1",statusmsg.toJson())     
+
+
+def process_status_0_message(inData):
+  
+    statusmsg = status_0()
+    statusmsg.Timer_Loss = str((inData[4]>> 7) & 1)
+    statusmsg.PowerTrouble  = str((inData[4]>>1) &1)
+    statusmsg.ACFailureTroubleIndicator = str((inData[6]>>1) &1)
+    statusmsg.NoLowBatteryTroubleIndicator = str((inData[6]>>0)&1)
+    statusmsg.TelephoneLineTroubleIndicator = str((inData[8]>>0)&1)
+    statusmsg.ACInputDCVoltageLevel = str(inData[15])
+    statusmsg.PowerSupplyDCVoltageLevel =str(inData[16])
+    statusmsg.BatteryDCVoltageLevel=str(inData[17])
+    
+    client.publish(f"{cfg.controller_name}/status_message_0",statusmsg.toJson())
+    
+    
+def process_status_0_zones(inData):
+    Zonename ="";
+    zcnt = 0;
+    zonemq = {}
+    for i in range(19, 22):
+        for j in range( 0 , 8):
+            zcnt = zcnt+1
+            Zonename = "zone" + str(zcnt)
+            if Zonename in zonedef:
+                if zonedef[Zonename]["enabled"] == True:
+                    zonemq[zonedef[Zonename]["name"]] =  (inData[i]>>j)&1
+            else:
+                zonemq[Zonename] =  (inData[i]>>j)&1
+    
+    for k in zonemq:
+        msg = "ON" if zonemq[k] == 1 else "OFF" 
+        client.publish(f"{cfg.controller_name}/zones/{k}",msg,True,1)
             
+        #time.sleep(0.2)
+        #client.publish(f"{cfg.root_topicArmHomekit}/{k}",msg,True,1)
+        
+        
+    mqmsg = json.dumps(zonemq)   
+    client.publish(f"{cfg.controller_name}/status_message_0_zone",mqmsg)
+
+   
+        
 
 def program_init(version):
     utils.trace(version)
@@ -394,11 +576,10 @@ def program_init(version):
 
 def panel_control(inCommand=inMessage()):
     
-    global PANEL_IS_LOGGED_IN
-    if not PANEL_IS_LOGGED_IN:
-        utils.trace(f"panel_control PANEL_IS_LOGGED_IN:{PANEL_IS_LOGGED_IN}")
+    #panel_login(inCommand.panel_password)
+    
+    if PANEL_IS_LOGGED_IN ==False:
         panel_login(inCommand.panel_password)
-        utils.trace(f"panel_control PANEL_IS_LOGGED_IN:{PANEL_IS_LOGGED_IN}")
     
     
     panel_command = get_panel_command(inCommand.command)
@@ -416,6 +597,32 @@ def panel_control(inCommand=inMessage()):
         
     if serialWrite(armdata):
         utils.trace("armdata written to serial")
+        
+    return True
+
+
+def set_panel_date(password):
+    print('set_panel_date')
+    panel_login(password)
+    ntptime.settime()
+    UTC_OFFSET = int(cfg.timezone) * 60 * 60
+    actual_time = time.localtime(time.time() + UTC_OFFSET)
+    datemsg = bytearray(MESSAGE_LENGTH)
+    datemsg[0] = 0x30
+    datemsg[4] = 0x21
+    datemsg[5] = actual_time[0]-2000
+    datemsg[6] = actual_time[1]
+    datemsg[7] = actual_time[2]
+    datemsg[8] = actual_time[3]
+    datemsg[9] = actual_time[4]
+    datemsg[33] = 0x05
+    
+    datemsg = checksum_calculate(datemsg)
+    #for x in range(MESSAGE_LENGTH):
+    #    utils.trace(f"[armdata{x}]={hex(armdata[x])}")
+        
+    if serialWrite(datemsg):
+        utils.trace(f"datemsg written to serial date:{str(time.localtime(time.time() + UTC_OFFSET))}")
         
     return True
 
@@ -485,7 +692,7 @@ def panel_login(panel_password):
         PANEL_IS_LOGGED_IN=True
     
     PANEL_LOGIN_IN_PROGRESS=False
-
+    time.sleep(1)
 
 
 
@@ -531,27 +738,26 @@ def sendArmStatusMQtt(hass):
         arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
         client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
     
-        
+    time.sleep(1)
+    client.publish(cfg.root_topicStatus, hass.toJson())    
     return arm_mesg.toJson() 
   
 def sendArmStatus(hass):
     utils.trace(f"SENDING ARM STATUS {hass}")
-    arm_mesg=arm_message()
-    arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
-    arm_mesg.Armstatus =  hass.intArmStatus
-    arm_mesg.ArmStatusD = hass.stringArmStatus
-    #client.publish(arm_mesg.topic,hass.stringArmStatus, True, 1 )
     
-    arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
-    #client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
-    
-    LIFO.append(hass.HomeKit)
     LIFO.append(hass)
     print(f"Added to LIFO {hass.HomeKit}")
     #return arm_mesg.toJson() 
   
+def timer_tick(timer):
+    #print('timer ticked')
+    client.ping()
+    led.value(True)
+    time.sleep(0.5)
+    led.value(False)
+    
+    
 
-KILL_THREAD=False
 Serial_loop_msg=False
 def serialloop():
     global LIFO,Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
@@ -561,65 +767,59 @@ def serialloop():
         wdt.feed()
         
         try:
+            
             client.check_msg()
-            if PANEL_LOGIN_IN_PROGRESS != Serial_loop_msg:
-                  utils.trace(f"PANEL_LOGIN_IN_PROGRESS Status changed to {PANEL_LOGIN_IN_PROGRESS}")
-                  Serial_loop_msg=PANEL_LOGIN_IN_PROGRESS
-            if not PANEL_LOGIN_IN_PROGRESS:
-              if serialRead():
-                  serial_last_read = time.time()
-                  print(f"LIFO len:{len(LIFO)}")
+            #if PANEL_LOGIN_IN_PROGRESS != Serial_loop_msg:
+            #      print(f"PANEL_LOGIN_IN_PROGRESS Status changed to {PANEL_LOGIN_IN_PROGRESS}")
+            #      Serial_loop_msg=PANEL_LOGIN_IN_PROGRESS
+            #if not PANEL_LOGIN_IN_PROGRESS:
+            if serialRead():
+                serial_last_read = time.time()
+                  #print(f"LIFO len:{len(LIFO)}")
             
             
             if len(LIFO)>0 and (time.time() - serial_last_read > 5):
                 LIFO = list(set(LIFO))
                 print(f"LIFO is {LIFO}")
-                if ("NA" or "SA") in LIFO:
-                    message_sent=False
-                    for i in LIFO:
+                for i in LIFO:
                         if not isinstance(i, str):
-                            
-                            if  (i.HomeKit == "NA" or i.HomeKit == "SA"):
-                                print(f"LIFO LOOP sending {i}")
-                                sendArmStatusMQtt(i)
-                                
-                
-                else:
-                    print(f"entered lifo > 0 with AA {LIFO}")
-                    for i in LIFO:
-                        
-                        if not isinstance(i, str):
-                            print(f"LIFO_AA is {i}")
                             sendArmStatusMQtt(i)
-                    
+                            
+                            
+               
                 print("cleared LIFO")
                 LIFO.clear()   
                 
                 
-            gc.collect()    
-            if KILL_THREAD:
-                break
+            gc.collect()
+            
+            
         except OSError as e:
-            KILL_THREAD=True
+            print(e)
             restart_and_reconnect()
             
-try:
-  client = connect_and_subscribe()
-  client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
-  t1= threading.Thread(target=serialloop)
-  websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
-  
-
-except OSError as e:
-  restart_and_reconnect()
-
 
 if __name__ == '__main__':
     try:
-        t1.start()
-        utils.trace("Starting Webserver")
+        
+        if station.isconnected() == True:
+            
+            t1= threading.Thread(target=serialloop)
+            t2= threading.Thread(target=webrepl.start)
+            websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
+            print('Starting MQTT')
+            client = connect_and_subscribe()
+            client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
+            print('Starting Timer')
+            
+            tim1.init(period=5000, mode=machine.Timer.PERIODIC, callback=timer_tick)
+            print('Starting serial loop')
+            t1.start()
+            
+        print('Starting webrepl thread')
+        t2.start()
+        print("Starting Webserver")
         websrv.runsrv()
     except:
-        KILL_THREAD=True
         restart_and_reconnect()
     

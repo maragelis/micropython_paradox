@@ -193,7 +193,40 @@ def getsubEvent(event,subevent):
             return ""
 
 
-    
+    elif event == 26:
+        if subevent == 0:
+            return "Non-valid source ID"
+        elif subevent ==1:
+            return "WinLoad/BabyWare direct"
+        elif subevent ==2:
+            return "WinLoad/BabyWare through IP module"
+        elif subevent ==3:
+            return "WinLoad/BabyWare through GSM module"
+        elif subevent ==4:
+            return "WinLoad/BabyWare through modem"
+        
+        elif subevent ==5:
+            return "NEware direct"
+        elif subevent ==6:
+            return "NEware through IP module"
+        elif subevent ==7:
+            return "NEware through GSM module"
+        elif subevent ==8:
+            return "NEware through modem"
+        elif subevent ==9:
+            return "IP100 direct"
+        elif subevent ==10:
+            return "VDMP3 direct"
+        elif subevent ==11:
+            return "Voice through GSM module"
+        elif subevent ==12:
+            return "Remote access"
+        elif subevent ==13:
+            return "SMS through GSM module"
+        elif subevent ==99:
+            return "Any software access"
+        else:
+            return ""
 
     elif event == 30:
         if subevent == 0: 
@@ -482,16 +515,27 @@ def getsubEvent(event,subevent):
 
 
     
-    elif subevent == 48:
-        if subevent == 2: 
+    elif event == 48:
+        if subevent == 0:
+            return "System power up"
+        elif subevent ==1:
+            return "Reporting test"
+        elif subevent ==2:
             return "Software log on"
-
-
-        elif subevent == 3: 
+        elif subevent ==3:
             return "Software log off"
-
-
-
+        elif subevent ==4:
+            return "Installer in programming mode"
+        elif subevent ==5:
+            return "Installer exited programming mode"
+        elif subevent ==6:
+            return "Maintenance in programming mode"
+        elif subevent ==7:
+            return "Maintenance exited programming mode"
+        elif subevent ==8:
+            return "Closing delinquency delay elapsed"
+        elif subevent ==9:
+            return "Any special even"
         else:
             return ""
 
