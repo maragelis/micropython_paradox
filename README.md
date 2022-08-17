@@ -19,7 +19,7 @@ Connect the devices together:
 ## settings
 
 The config.json file contains all settings that can be eddited by the user.
-After connecting to wifi, config can be changed using http://ipaddress:5000
+After connecting to wifi, config can be changed using http://ipaddress
 
         
 The 37 byte message is broken down into a json message with "Event Group" and "Sub-group", and one more dummy attribute which is the zone/partition label.
