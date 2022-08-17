@@ -50,7 +50,7 @@ The command payloads are in JSON. Template:
 {
  "password":"1234",
  "command":"arm",
- "cubcommand":"0"
+ "subcommand":"0"
 }
 ```
 The password is the user's 4 digit password.
