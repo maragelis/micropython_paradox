@@ -39,8 +39,7 @@ See the wiki for more info on Groups and Sub-groups
 
 | Topic                                   | Notes                                                     |
 |-----------------------------------------|-----------------------------------------------------------|
-| paradoxdCTL/hassio/zoneX                | Where x is zone number from 1-32                          |
-| paradoxdCTL/hassio/Arm[partition]/zoneX | Gives values ON/OFF                                       |
+| paradoxdCTL/zones/zoneX                 | Where x is zone number from 1-32 Gives values ON/OFF                                       |
 | paradoxdCTL/hassio/Arm[partition]       | Gives values: disarmed, armed_home, armed_away, triggered |
 
 ### Sending commands
