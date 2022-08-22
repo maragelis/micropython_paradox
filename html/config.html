@@ -50,10 +50,12 @@
                   document.getElementById("root_topicStatus").value = jsonObj.root_topicStatus;
                   document.getElementById("root_topicIn").value = jsonObj.root_topicIn;
                   document.getElementById("root_topicHassioArm").value = jsonObj.root_topicHassioArm;
-                  document.getElementById("root_topicHassio").value = jsonObj.root_topicHassio;
-                  document.getElementById("root_topicArmHomekit").value = jsonObj.root_topicArmHomekit;
+                  
                   document.getElementById("timezone").value = jsonObj.timezone;
                   document.getElementById("ESP_UART").value = jsonObj.ESP_UART;
+                  document.getElementById("homekit").value = jsonObj.homekit;
+                  document.getElementById("homekit_secure").value = jsonObj.homekit_secure;
+                  
                }
             }
 			
@@ -68,7 +70,7 @@
 	
    <body>
       <h1>CONFIG Page</h1>
-		<form action="savejson" method="post">
+		<form action="savejson" method="post" id="submitfrm" onsubmit="myFunction()">
       <table class = "src">
          <tr><th>variable</th><th>value</th></tr>
          <tr>
@@ -111,13 +113,18 @@
             <td><div id = "root_topicHassioArml">root_topicHassioArm</div></td>
             <td><input name="root_topicHassioArm" type="text" id="root_topicHassioArm"></td>
          </tr>
+        
          <tr>
-            <td><div id = "root_topicHassiol">root_topicHassio</div></td>
-            <td><input name="root_topicHassio" type="text" id="root_topicHassio"></td>
+            <td><div id = "homekit1">homekit</div></td>
+            <td><input name="homekit" type="text" id="homekit"></td>
          </tr>
          <tr>
-            <td><div id = "root_topicArmHomekitl">root_topicArmHomekit</div></td>
-            <td><input name="root_topicArmHomekit" type="text" id="root_topicArmHomekit"></td>
+            <td><div id = "homekit_secure1">homekit_secure</div></td>
+            <td><input name="homekit_secure" type="text" id="homekit_secure"></td>
+         </tr>
+         <tr>
+            <td><div id = "homekit_user1">homekit_user</div></td>
+            <td><input name="homekit_user" type="text" id="homekit_user" value="0000"></td>
          </tr>
          
          <tr>
@@ -132,7 +139,7 @@
 
          <tr>
             <td><div id = "timezone1">WEBREPL</div></td>
-            <td><input name="WEBREPL" type="text" id="WEBREPL" value="WebREPLport:8266 password:7089" readonly></td>
+            <td><input name="WEBREPL" type="text" id="WEBREPL" value="port:8266 password:7089" readonly></td>
          </tr>
       </table>
    
@@ -146,3 +153,4 @@
    </body>
 		
 </html>
+<!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script> -->
