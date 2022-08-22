@@ -2,6 +2,7 @@ import websrv
 import paradoxEvents
 import utils
 import ParadoxSubEvent
+from homekit import homekit
 gc.collect()
 
 print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
@@ -19,7 +20,7 @@ while replloopcnt <= 5:
         
     
             
-VERSION="1.6.202208120955"
+VERSION="1.6.202208121926"
 
 SEND_ALL_EVENTS = True
 tim1 = machine.Timer(0)
@@ -27,6 +28,7 @@ tim1 = machine.Timer(0)
 #wdt = WDT(timeout=10000)
 
 zonedef={}
+hk = homekit(homebridge_prefix=f"{cfg.root_topicIn}/homebridge")
 
 if "zonedef.json" in os.listdir():
     print ("Loading zone def")
@@ -35,7 +37,7 @@ if "zonedef.json" in os.listdir():
 
 
 client_id = ubinascii.hexlify(machine.unique_id())
-topic_sub = cfg.root_topicIn
+topic_sub = f"{cfg.root_topicIn}/#"
 mqtt_server = cfg.mqttserver
 utils.trace(f"mqtt_server:{cfg.mqttserver}, username:{cfg.mqttusername}, password:{cfg.mqttpassword}, topic:{cfg.root_topicIn}")
 
@@ -92,7 +94,7 @@ class status_1:
         return json.dumps(self.__dict__)
         
 class paradoxArm:
-    intArmStatus=0
+    intArmStatus=99
     stringArmStatus=""
     HomeKit=""
     Partition=0
@@ -142,6 +144,7 @@ class zone_message:
     Partition_Number=0
     topic=""
     zone_def=""
+    zone_type=""
     
     def toJson(self):
         return json.dumps(self.__dict__)
@@ -170,7 +173,29 @@ class paradox_arm_status:
     
 
 def sub_cb(topic, msg):
-    utils.trace((topic, msg))
+    #print((topic, msg))
+        
+    if topic == bytes(f"{hk.from_set}/{cfg.controller_name}","utf-8") :
+        print("in homekit command")
+        strmsg = msg.decode("utf-8")
+        try:
+            json_data = json.loads(strmsg.lower())
+            cmd = inMessage()
+            cmd.panel_password = cfg.homekit_user
+            cmd.command = str(json_data['value'])
+            jsonobj=hk.set_alarm_state(hk.SecuritySystemTargetState_characteristic,json_data['value'])
+            client.publish(hk.to_set, jsonobj)
+            panel_control(cmd)
+            
+        except ValueError as e:
+            client.publish(cfg.root_topicStatus, "malformatted json message try {'command':'arm','password':'1234'}" )
+            return
+            
+        print(strmsg)
+        return
+    
+    
+    
     if topic == bytes(cfg.root_topicIn,"utf-8") :
         strmsg = msg.decode("utf-8")
         try:
@@ -191,6 +216,12 @@ def sub_cb(topic, msg):
                 
             elif (str(json_data['panel_command']) == "status_1"):
                 panel_status_1(str(json_data['password']))
+            
+            elif (str(json_data['panel_command']) == "arm_state"):
+                sendArmStatusMQtt(hassioStatus1)
+                if hassioStatus2.intArmStatus!=99:
+                    sendArmStatusMQtt(hassioStatus2)
+                
                 
             else:
                 client.publish(cfg.root_topicStatus, "unknown panel_command" )
@@ -252,12 +283,15 @@ def serialRead():
             
         if  paradoxserial.any() >= 37 :
             #reset_message()
-            utils.trace(f"serialRead has data {paradoxserial.any()}")
+            #print(f"serialRead has data {paradoxserial.any()}")
             paradoxserial.readinto(MESSAGE)
             
             if (MESSAGE[7] == 3 and MESSAGE[8] <=1):
+                #print("return for bell")
                 return True
             
+            
+                
             processMessage(MESSAGE)
             if SEND_ALL_EVENTS:
                 get_event_data(MESSAGE)
@@ -380,6 +414,34 @@ def get_event_data(serial_message):
         e0msg.Partition_Number=serial_message[9]
         e0msg.Event_Group_Desc=paradoxEvents.getEvent(serial_message[7])
         client.publish(cfg.root_topicOut, e0msg.toJson())
+        
+def process_zone_message(serial_message):
+    
+    #zone message
+    utils.trace("E0 Zone Message receivied")
+    e = zone_message()
+    e.zone=serial_message[8]
+    e.state="ON" if serial_message[7] == 1 else "OFF" 
+    e.Partition_Number=serial_message[9]
+    e.zone_name=serial_message[15:30].decode().strip()
+    e.topic = f"{cfg.controller_name}/zones/zone{str(serial_message[8])}"
+    e.zone_def = f"zone{str(serial_message[8])}"
+    e.zone_type=hk.ContactDetectorType
+    zonename=f"zone{str(serial_message[8])}"
+    
+    if zonename in zonedef:
+        e.zone_def=f"zone{str(serial_message[8])}_{zonedef[zonename]['name']}"
+        e.topic = f"{cfg.controller_name}/zones/{e.zone_def}"
+        e.zone_type=zonedef[zonename]['type']
+        
+    utils.trace(f"returning zoneJson  {e.toJson()}")
+    client.publish(e.topic, str(e.state), True, 1 )
+            
+    json_obj=hk.set_zone_value(zone=e.zone_def,zone_type=e.zone_type,state=e.state)
+    client.publish(hk.to_set,json_obj)
+            
+    e.topic = cfg.root_topicStatus
+    client.publish(cfg.root_topicStatus, e.toJson())   
 
 def processMessage(serial_message):
     #utils.trace("processMessage")
@@ -404,29 +466,21 @@ def processMessage(serial_message):
         
         
         if serial_message[7] == 0 or serial_message[7]==1:
+            process_zone_message(serial_message)
             
-            
-            utils.trace("E0 Zone Message receivied")
-            e = zone_message()
-            e.zone=serial_message[8]
-            e.state="ON" if serial_message[7] == 1 else "OFF" 
-            e.Partition_Number=serial_message[9]
-            e.zone_name=serial_message[15:30].decode().strip()
-            e.topic = f"{cfg.controller_name}/zones/zone{str(serial_message[8])}"
-            
-            zonename=f"zone{str(serial_message[8])}"
-            if zonename in zonedef:
-                e.zone_def=zonedef[zonename]["name"]
-                e.topic = f"{cfg.controller_name}/zones/{e.zone_def}"
-                
-            utils.trace(f"returning zoneJson  {e.toJson()}")
-            client.publish(e.topic, str(e.state), True, 1 )
-            
-            #e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
-            #client.publish(e.topic, str(e.state), True, 1 )
-            e.topic = cfg.root_topicStatus
-            client.publish(cfg.root_topicStatus, e.toJson())    
+             
         
+        elif (serial_message[7] == 44 and serial_message[8] == 1):
+            client.publish(f"{cfg.controller_name}/AC_failure","true",retain=True)
+        
+        elif (serial_message[7] == 45 and serial_message[8] == 1):
+            client.publish(f"{cfg.controller_name}/AC_failure","false",retain=True)
+                
+        elif (serial_message[7] == 44 and serial_message[8] == 2):
+            client.publish(f"{cfg.controller_name}/Battery_failure","true",retain=True)
+        
+        elif (serial_message[7] == 45 and serial_message[8] == 2):
+                client.publish(f"{cfg.controller_name}/Battery_failure","false",retain=True)
             
         elif (serial_message[7] == 48 and serial_message[8] == 3):
             PANEL_IS_LOGGED_IN = False
@@ -512,6 +566,7 @@ def panel_status_1(panel_password):
         
 
 def process_status_1_message(inData):
+    global hassioStatus
     
     statusmsg = status_1()
     statusmsg.Fire= (inData[17]>>7)&1
@@ -521,8 +576,68 @@ def process_status_1_message(inData):
     statusmsg.StayFlg=(inData[17]>>2)&1
     statusmsg.SleepFlg=(inData[17]>>1)&1
     statusmsg.ArmFlg=(inData[17]>>0)&1
- 
-    client.publish(f"{cfg.controller_name}/status_message_1",statusmsg.toJson())     
+    
+    if statusmsg.SleepFlg==1:
+        hassioStatus[0].HomeKit = "NA"
+        hassioStatus[0].stringArmStatus="armed_home"
+        hassioStatus[0].intArmStatus=2
+    elif statusmsg.StayFlg==1:
+        hassioStatus[0].HomeKit = "SA"
+        hassioStatus[0].stringArmStatus="armed_home"
+        hassioStatus[0].intArmStatus=0
+    elif statusmsg.ArmFlg==1:
+        hassioStatus[0].HomeKit = "AA"
+        hassioStatus[0].stringArmStatus="armed_away"
+        hassioStatus[0].intArmStatus=1
+    elif statusmsg.AlarmFlg==1:
+        hassioStatus[0].HomeKit = "T"
+        hassioStatus[0].stringArmStatus="triggered"
+        hassioStatus[0].intArmStatus=4
+    else:
+        hassioStatus[0].HomeKit = "D"
+        hassioStatus[0].stringArmStatus="disarmed"
+        hassioStatus[0].intArmStatus=3
+    hassioStatus[0].Partition = 0
+    sendArmStatusMQtt(hassioStatus[0])
+         
+    
+    
+        
+    
+    client.publish(f"{cfg.controller_name}/status_message_1_0",statusmsg.toJson())
+    
+    statusmsg.Fire= (inData[21]>>7)&1
+    statusmsg.Audible=(inData[21]>>6)&1
+    statusmsg.Silent=(inData[21]>>5)&1
+    statusmsg.AlarmFlg=(inData[21]>>4)&1
+    statusmsg.StayFlg=(inData[21]>>2)&1
+    statusmsg.SleepFlg=(inData[21]>>1)&1
+    statusmsg.ArmFlg=(inData[21]>>0)&1
+    
+    if statusmsg.SleepFlg==1:
+        hassioStatus[1].HomeKit = "NA"
+        hassioStatus[1].stringArmStatus="armed_home"
+        hassioStatus[1].intArmStatus=2
+    elif statusmsg.StayFlg==1:
+        hassioStatus[1].HomeKit = "SA"
+        hassioStatus[1].stringArmStatus="armed_home"
+        hassioStatus[1].intArmStatus=0
+    elif statusmsg.ArmFlg==1:
+        hassioStatus[1].HomeKit = "AA"
+        hassioStatus[1].stringArmStatus="armed_away"
+        hassioStatus[1].intArmStatus=1
+    elif statusmsg.AlarmFlg==1:
+        hassioStatus[1].HomeKit = "T"
+        hassioStatus[1].stringArmStatus="triggered"
+        hassioStatus[1].intArmStatus=4
+    else:
+        hassioStatus[1].HomeKit = "D"
+        hassioStatus[1].stringArmStatus="disarmed"
+        hassioStatus[1].intArmStatus=3
+    hassioStatus[1].Partition = 1
+    sendArmStatusMQtt(hassioStatus[1])
+    
+    client.publish(f"{cfg.controller_name}/status_message_1_1",statusmsg.toJson())
 
 
 def process_status_0_message(inData):
@@ -550,7 +665,7 @@ def process_status_0_zones(inData):
             Zonename = "zone" + str(zcnt)
             if Zonename in zonedef:
                 if zonedef[Zonename]["enabled"] == True:
-                    zonemq[zonedef[Zonename]["name"]] =  (inData[i]>>j)&1
+                    zonemq[f"{Zonename}_{zonedef[Zonename]['name']}"] =  (inData[i]>>j)&1
             else:
                 zonemq[Zonename] =  (inData[i]>>j)&1
     
@@ -584,6 +699,13 @@ def panel_control(inCommand=inMessage()):
     
     panel_command = get_panel_command(inCommand.command)
     panel_subcommand = int(inCommand.subcommand) 
+    if panel_command == BYPASS or panel_command == PGMOFF or panel_command == PGMON:
+        panel_subcommand = int(inCommand.subcommand) -1
+    
+    if panel_command == SET_DATE:
+        set_panel_date(inCommand.panel_password)
+        return
+    
     armdata = bytearray(MESSAGE_LENGTH)
     armdata[0] = 0x40
     armdata[2] = panel_command
@@ -699,13 +821,13 @@ def panel_login(panel_password):
 def get_panel_command(arm_request):
     arm_request=arm_request.lower()
     retval = 0
-    if (arm_request == "stay" or arm_request=="0"):
+    if (arm_request == "stay" or arm_request=="0" ):
         retval= STAY_ARM
-    elif (arm_request == "close" or arm_request=="1"):
+    elif (arm_request == "close"  ):
         retval= CLOSE_CONNECTION
-    elif (arm_request == "arm" or arm_request=="1"):
+    elif (arm_request == "arm" or arm_request=="1" ):
         retval= FULL_ARM
-    elif (arm_request == "sleep" or arm_request=="2"):
+    elif (arm_request == "sleep" or arm_request=="2" ):
         retval= SLEEP_ARM
     elif (arm_request == "disarm" or arm_request == "off" or arm_request == "3"):
         return DISARM
@@ -737,9 +859,21 @@ def sendArmStatusMQtt(hass):
     if hass.intArmStatus != 99:
         arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
         client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
+        jsonobj=hk.set_alarm_state(hk.SecuritySystemTargetState_characteristic,hass.intArmStatus)
+        client.publish(hk.to_set, jsonobj)
+        time.sleep(1)
+        jsonobj=hk.set_alarm_state(hk.SecuritySystemCurrentState_characteristic,hass.intArmStatus)
+        client.publish(hk.to_set, jsonobj)
     
-    time.sleep(1)
-    client.publish(cfg.root_topicStatus, hass.toJson())    
+    
+    
+    #jsonobj=hk.set_alarm_state(hk.SecuritySystemTargetState_characteristic,hass.intArmStatus)
+    #client.publish(hk.to_set, jsonobj)
+    #time.sleep(1)
+    
+    #time.sleep(1)
+    #client.publish(cfg.root_topicStatus, hass.toJson())
+    
     return arm_mesg.toJson() 
   
 def sendArmStatus(hass):
@@ -756,6 +890,41 @@ def timer_tick(timer):
     time.sleep(0.5)
     led.value(False)
     
+def add_homekit_accessories():
+    try:
+        
+        if "homekitconfig.json" in os.listdir():            
+            print ("Loading homekit accessories")
+            with open('homekitconfig.json') as json_file:
+                z_dic = json.load(json_file)
+        else:
+            z_dic=[]
+            
+            
+        print("adding homekit accessory")
+        json_obj = hk.main(name=cfg.controller_name,service_name=cfg.controller_name)
+        #print(json_obj)
+        client.publish(hk.to_add,json_obj)
+                    
+        for i in zonedef :
+            if zonedef[i]["enabled"]:
+                obj_name = f"{i}_{zonedef[i]['name']}"
+                if obj_name not in z_dic:
+                    z_dic.append(obj_name)
+                    #print(f"obj_name:{obj_name} service={zonedef[i]['type']}")
+                    json_obj = hk.zone(name=obj_name,service_name=obj_name,service=zonedef[i]["type"])
+                    #print(json_obj)
+                    client.publish(hk.to_add,json_obj)
+                    time.sleep(1)
+        
+        f = open('homekitconfig.json','w')
+        f.write(json.dumps(z_dic))
+        f.close()           
+        
+    except OSError as e:
+            print(e)
+            
+            
     
 
 Serial_loop_msg=False
@@ -802,6 +971,8 @@ def serialloop():
 if __name__ == '__main__':
     try:
         
+        
+        
         if station.isconnected() == True:
             
             t1= threading.Thread(target=serialloop)
@@ -813,6 +984,11 @@ if __name__ == '__main__':
             print('Starting Timer')
             
             tim1.init(period=5000, mode=machine.Timer.PERIODIC, callback=timer_tick)
+            
+            
+            if cfg.homeit==True:
+                add_homekit_accessories()
+                        
             print('Starting serial loop')
             t1.start()
             

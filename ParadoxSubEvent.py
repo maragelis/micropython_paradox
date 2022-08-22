@@ -427,59 +427,59 @@ def getsubEvent(event,subevent):
 
     elif event == 45:
         if subevent == 1: 
-            return "AC failure"
+            return "AC failure restore"
 
 
         elif subevent == 2: 
-            return "Battery failure"
+            return "Battery failure restore"
 
 
         elif subevent == 3: 
-            return "Auxiliary current overload"
+            return "Auxiliary current overload restore"
 
 
         elif subevent == 4: 
-            return "Bell current overload"
+            return "Bell current overload restore"
 
 
         elif subevent == 5: 
-            return "Bell disconnected"
+            return "Bell disconnected restore"
 
 
         elif subevent == 6: 
-            return "Clock loss"
+            return "Clock loss restore"
 
 
         elif subevent == 7: 
-            return "Fire loop trouble"
+            return "Fire loop trouble restore"
 
 
         elif subevent == 8: 
-            return "Fail call station telephone # 1"
+            return "Fail call station telephone # 1 restore"
 
 
         elif subevent == 9: 
-            return "Fail call station telephone # 2"
+            return "Fail call station telephone # 2 restore"
 
 
         elif subevent == 11: 
-            return "Fail to communicate with voice report"
+            return "Fail to communicate with voice report restore"
 
 
         elif subevent == 12: 
-            return "RF jamming"
+            return "RF jamming restore"
 
 
         elif subevent == 13: 
-            return "GSM RF jamming"
+            return "GSM RF jamming restore"
 
 
         elif subevent == 14: 
-            return "GSM no service"
+            return "GSM no service restore"
 
 
         elif subevent == 15: 
-            return "GSM supervision lost"
+            return "GSM supervision lost restore"
 
 
         elif subevent == 16: 
@@ -491,11 +491,11 @@ def getsubEvent(event,subevent):
 
 
         elif subevent == 18: 
-            return "IP module no service"
+            return "IP module no service restore"
 
 
         elif subevent == 19: 
-            return "IP module supervision loss"
+            return "IP module supervision loss restore"
 
 
         elif subevent == 20: 
@@ -507,7 +507,7 @@ def getsubEvent(event,subevent):
 
 
         elif subevent == 22: 
-            return "GSM/GPRS module tamper trouble"
+            return "GSM/GPRS module tamper trouble restore"
 
 
         else:
