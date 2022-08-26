@@ -2,179 +2,117 @@ import websrv
 import paradoxEvents
 import utils
 import ParadoxSubEvent
+from homekit import homekit
+import paradox_objects as pobj
+
 gc.collect()
 
-print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
-led.value(False)
-
-replloopcnt=0
-while replloopcnt <= 5:
-    if repl_button.value() == 0:
-        utils.trace("Dropping to REPL")
-        sys.exit()
-    else:
-        print(f"waiting for repl {5-replloopcnt} {'.' * replloopcnt} ")
-        replloopcnt +=1
-        time.sleep(1)
-        
-    
-            
-VERSION="1.6.202208120955"
-
-SEND_ALL_EVENTS = True
-tim1 = machine.Timer(0)
-
-#wdt = WDT(timeout=10000)
-
-zonedef={}
-
-if "zonedef.json" in os.listdir():
-    print ("Loading zone def")
-    with open('zonedef.json') as json_file:
-        zonedef = json.load(json_file)
+VERSION="1.6.202208121926"
 
 
-client_id = ubinascii.hexlify(machine.unique_id())
-topic_sub = cfg.root_topicIn
-mqtt_server = cfg.mqttserver
-utils.trace(f"mqtt_server:{cfg.mqttserver}, username:{cfg.mqttusername}, password:{cfg.mqttpassword}, topic:{cfg.root_topicIn}")
 
-paradoxserial = UART(cfg.ESP_UART,baudrate=9600)
-paradoxserial.init()
-
-STAY_ARM = 0x01
-STAY_ARM2 = 0x02
-SLEEP_ARM = 0x03
-FULL_ARM = 0x04
-DISARM = 0x05
-BYPASS = 0x10
-PGMON = 0x32
-PGMOFF = 0x33
-SET_DATE =0x30
-ARM_STATE=0x91
-PANEL_STATUS=0x50
-CLOSE_CONNECTION=0x70
-
-
-MESSAGE_LENGTH=37
-
+hk = ""
+client=""
+paradoxserial=""
+LIFO=[]
+hassioStatus1 = pobj.paradoxArm()
+hassioStatus2 = pobj.paradoxArm()
+hassioStatus = (hassioStatus1,hassioStatus2)
 PANEL_IS_LOGGED_IN=False
 COMUNTICATION_INIT=False
 PANEL_LOGIN_IN_PROGRESS=False
 
-LIFO=[]
 
-class status_0:
-    def __init__(self):
-        self.Timer_Loss = ""
-        self.PowerTrouble  = ""
-        self.ACFailureTroubleIndicator = ""
-        self.NoLowBatteryTroubleIndicator = ""
-        self.TelephoneLineTroubleIndicator = ""
-        self.ACInputDCVoltageLevel = ""
-        self.PowerSupplyDCVoltageLevel =""
-        self.BatteryDCVoltageLevel=""
+def main():
+    global hk,client,paradoxserial
+    print("hold 0 'boot button' for 5sec or ctrl-c to enter repl")
+    led.value(False)
+    
+    
+    websrv.cfg = cfg
+    websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
+
+    replloopcnt=0
+    while replloopcnt <= 5:
+        if repl_button.value() == 0:
+            utils.trace("Dropping to REPL")
+            sys.exit()
+        else:
+            print(f"waiting for repl {5-replloopcnt} {'.' * replloopcnt} ")
+            replloopcnt +=1
+            time.sleep(1)
+       
+    
+    paradoxserial = UART(cfg.ESP_UART,baudrate=9600)
+    paradoxserial.init()
+
+    try:
         
-    def toJson(self):
-        return json.dumps(self.__dict__)
-    
-class status_1:
-    def __init__(self):
-        self.Fire=False
-        self.Audible=False
-        self.Silent=False
-        self.AlarmFlg=False
-        self.StayFlg=False
-        self.SleepFlg=False
-        self.ArmFlg=False
-        
-    def toJson(self):
-        return json.dumps(self.__dict__)
-        
-class paradoxArm:
-    intArmStatus=0
-    stringArmStatus=""
-    HomeKit=""
-    Partition=0
-    sent=0
-    
-    def toJson(self):
-        return json.dumps(self.__dict__)
-    
-    def __str__(self):
-        return f"paradoxArm intArmStatus:{str(self.intArmStatus)} ,stringArmStatus:{self.stringArmStatus},Partition:{str(self.Partition)},sent:{str(self.sent)}"
-
-
-hassioStatus1 = paradoxArm()
-hassioStatus2 = paradoxArm()
-hassioStatus = (hassioStatus1,hassioStatus2)
-
-class E0_message:
-    Command=""
-    Century=""
-    Year=""
-    Month=""
-    Day=""
-    Hour=""
-    Minute=""
-    Event_Group_Number=""
-    Event_Subgroup_Number=""
-    Event_Group_Desc=""
-    Event_Subgroup_Desc=""
-    Partition_Number=""
-    Data=""
-    
-    def toJson(self):
-        return json.dumps(self.__dict__)
-
-class arm_message:
-    Armstatus=""
-    ArmStatusD=""
-    topic=""
-    
-    def toJson(self):
-        return json.dumps(self.__dict__)
-
-class zone_message:
-    zone=0
-    zone_name=""
-    state=""
-    Partition_Number=0
-    topic=""
-    zone_def=""
-    
-    def toJson(self):
-        return json.dumps(self.__dict__)
-    
-
-class inMessage:
-   
-    panel_password=""
-    command= ""
-    subcommand="0"
-    
-    def toJson(self):
-        return json.dumps(self.__dict__)
-        
-    def __str__(self):
-        return f"panel_password:{self.panel_password}, command:{self.command}, subcommand:{self.subcommand}"
-
-
-class paradox_arm_status:
-    intArmStatus=0
-    stringArmStatus=""
-    partition=0
-    sent=0
-    
-
+        if station.isconnected() == True:
+            
+            t1= threading.Thread(target=serialloop)
+            t2= threading.Thread(target=webrepl.start)
+            
+            print('Starting MQTT')
+            client = connect_and_subscribe()
+            client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
+            print('Starting Timer')
+            tim1 = machine.Timer(0)
+            tim1.init(period=5000, mode=machine.Timer.PERIODIC, callback=timer_tick)
+            
+            if cfg.homekit==True :
+                print ("Loading homekit accessories")
+                hk=homekit(homebridge_prefix=f"{cfg.root_topicIn}/homebridge",controller_name=cfg.controller_name ,mqttclient=client)
+                
+                        
+            print('Starting serial loop')
+            t1.start()
+            
+        print('Starting webrepl thread')
+        t2.start()
+        print("Starting Webserver")
+        websrv.runsrv()
+    except:
+        restart_and_reconnect()
     
 
 def sub_cb(topic, msg):
-    utils.trace((topic, msg))
-    if topic == bytes(cfg.root_topicIn,"utf-8") :
+    #print((topic, msg))
+        
+    if topic == bytes(f"{homekit.from_set}/{cfg.controller_name}","utf-8") and cfg.homekit==True:
+        print("in homekit command")
         strmsg = msg.decode("utf-8")
         try:
             json_data = json.loads(strmsg.lower())
+            cmd = pobj.inMessage()
+            cmd.panel_password = cfg.homekit_user
+            cmd.command = str(json_data['value'])
+            
+            
+            if panel_control(cmd):
+                hk.set_alarm_state(homekit.SecuritySystemTargetState_characteristic,json_data['value'])
+            
+        except ValueError as e:
+            client.publish(cfg.root_topicStatus, "malformatted json message try {'command':'arm','password':'1234'}" )
+            return
+            
+        #print(strmsg)
+        return
+
+
+
+    if topic == bytes(cfg.root_topicIn,"utf-8"):
+        strmsg = msg.decode("utf-8")
+        try:
+            json_data = json.loads(strmsg.lower())
+            
+            if "password" in json_data:
+                password = str(json_data['password'])
+            elif cfg.homekit_user != "0000":
+                password = cfg.homekit_user
+            else:
+                password = "0000"
+            
         except ValueError as e:
             client.publish(cfg.root_topicStatus, "malformatted json message try {'command':'arm','password':'1234'}" )
             return
@@ -184,29 +122,35 @@ def sub_cb(topic, msg):
         
         elif "panel_command" in json_data:
             if (str(json_data['panel_command']) == "setdate"):
-                set_panel_date(str(json_data['password']))
+                set_panel_date(password)
                 
             elif (str(json_data['panel_command']) == "status_0"):
-                panel_status_0(str(json_data['password']))
+                panel_status_0(password)
                 
             elif (str(json_data['panel_command']) == "status_1"):
-                panel_status_1(str(json_data['password']))
+                panel_status_1(password)
+            
+            elif (str(json_data['panel_command']) == "arm_state"):
+                sendArmStatusMQtt(hassioStatus1)
+                if hassioStatus2.intArmStatus!=99:
+                    sendArmStatusMQtt(hassioStatus2)
                 
+            
             else:
                 client.publish(cfg.root_topicStatus, "unknown panel_command" )
                 
                 
-        elif ("command" in json_data):
-            inmessage =inMessage()
+        elif ("command" in json_data) and cfg.homekit_secure == False:
+            inmessage =pobj.inMessage()
             inmessage.command = json_data["command"]
             inmessage.panel_password=""
             fixed_password = ""
             
             if "panel_password" in json_data:
-                fixed_password=str(json_data["panel_password"])
+                fixed_password=password
                 
             elif "password" in json_data:
-                fixed_password=str(json_data["password"])
+                fixed_password=password
             
             if len(fixed_password)>=4:
                 for i in fixed_password:
@@ -228,38 +172,47 @@ def sub_cb(topic, msg):
         utils.trace(f"ESP received message : {msg}")
 
 def connect_and_subscribe():
-  global client_id, mqtt_server, topic_sub
-  client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword,keepalive=30)
-  client.set_callback(sub_cb)
-  client.set_last_will(f"{cfg.controller_name}/reachable","false",retain=True)
-  client.connect()
-  client.subscribe(topic_sub)
-  client.publish(f"{cfg.controller_name}/reachable","true",retain=True)
-  utils.trace('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub))
-  return client
+    global client
+    
+    client_id = ubinascii.hexlify(machine.unique_id())
+    topic_sub = f"{cfg.root_topicIn}/#"
+    mqtt_server = cfg.mqttserver
+    utils.trace(f"mqtt_server:{cfg.mqttserver}, username:{cfg.mqttusername}, password:{cfg.mqttpassword}, topic:{cfg.root_topicIn}")
+
+    client = MQTTClient(client_id, mqtt_server, user=cfg.mqttusername , password=cfg.mqttpassword,keepalive=30)
+    client.set_callback(sub_cb)
+    client.set_last_will(f"{cfg.controller_name}/reachable","false",retain=True)
+    client.connect()
+    client.subscribe(topic_sub)
+    client.publish(f"{cfg.controller_name}/reachable","true",retain=True)
+    utils.trace('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub))
+    return client
 
 def restart_and_reconnect():
-  utils.trace('Failed to connect to MQTT broker. Reconnecting...')
-  time.sleep(10)
-  utils.trace('RESETTING ....')
-  machine.reset()    
+    utils.trace('Failed to connect to MQTT broker. Reconnecting...')
+    time.sleep(10)
+    utils.trace('RESETTING ....')
+    machine.reset()    
 
 def serialRead():
     try:
         
     
-        MESSAGE = bytearray(MESSAGE_LENGTH)
+        MESSAGE = bytearray(cfg.MESSAGE_LENGTH)
             
         if  paradoxserial.any() >= 37 :
             #reset_message()
-            utils.trace(f"serialRead has data {paradoxserial.any()}")
+            #print(f"serialRead has data {paradoxserial.any()}")
             paradoxserial.readinto(MESSAGE)
             
             if (MESSAGE[7] == 3 and MESSAGE[8] <=1):
+                #print("return for bell")
                 return True
             
+            
+                
             processMessage(MESSAGE)
-            if SEND_ALL_EVENTS:
+            if cfg.SEND_ALL_EVENTS:
                 get_event_data(MESSAGE)
             
             return True
@@ -269,13 +222,12 @@ def serialRead():
         print(e)
         restart_and_reconnect()
     #sleep(0.5)
-        
+    
 def serialReadWriteQuick(byteMessage):
-    global MESSAGE
     time_start = time.time()
     paradoxserial.write(byteMessage)
     
-    serial_message= bytearray(MESSAGE_LENGTH)
+    serial_message= bytearray(cfg.MESSAGE_LENGTH)
     loop = True
     while loop :
         if paradoxserial.any() >= 37 :
@@ -289,12 +241,12 @@ def serialReadWriteQuick(byteMessage):
                 return serial_message
             loop=False
         
-        
-        
+    
+    
 
 def serialWrite(byteMessage):
     wcnt =0 ;
-    while paradoxserial.write(byteMessage) != MESSAGE_LENGTH:
+    while paradoxserial.write(byteMessage) != cfg.MESSAGE_LENGTH:
         wcnt = wcnt +1
         time.sleep(1)
         if wcnt > 5:
@@ -302,20 +254,10 @@ def serialWrite(byteMessage):
         else:
             return True
     
-    
-    '''
-    buffer_count = paradoxserial.write(byteMessage)
-    if buffer_count==MESSAGE_LENGTH:
-        return True
-    else:
-        buffer_count = paradoxserial.write(byteMessage)
-        if buffer_count==MESSAGE_LENGTH:
-            return True
-        else:
-            return False
-    '''
-    
-    
+
+
+
+
 def updateArmStatus(event, sub_event, partition):
     utils.trace(f"updateArmStatus event:{event}, sub_event:{sub_event},partition:{partition} ")
     global hassioStatus
@@ -362,9 +304,9 @@ def updateArmStatus(event, sub_event, partition):
             hassioStatus[partition].intArmStatus = 2
             utils.trace(f"ARM_STATE update : armed_home")
     utils.trace(f"hassioStatus:{hassioStatus[partition]}")     
-    
+
 def get_event_data(serial_message):
-    e0msg = E0_message()
+    e0msg = pobj.E0_message()
     if serial_message[0] & 0xF0 == 0xE0:
         
         e0msg.Command=serial_message[0]
@@ -380,6 +322,38 @@ def get_event_data(serial_message):
         e0msg.Partition_Number=serial_message[9]
         e0msg.Event_Group_Desc=paradoxEvents.getEvent(serial_message[7])
         client.publish(cfg.root_topicOut, e0msg.toJson())
+    
+def process_zone_message(serial_message):
+    
+    #zone message
+    utils.trace("E0 Zone Message receivied")
+    e = pobj.zone_message()
+    e.zone=serial_message[8]
+    e.state="ON" if serial_message[7] == 1 else "OFF" 
+    e.Partition_Number=serial_message[9]
+    e.zone_name=serial_message[15:30].decode().strip()
+    e.topic = f"{cfg.controller_name}/zones/zone{str(serial_message[8])}"
+    e.zone_def = f"zone{str(serial_message[8])}"
+    e.zone_type=homekit.ContactDetectorType
+    zonename=f"zone{str(serial_message[8])}"
+    
+    if zonename in cfg.zonedef:
+        e.zone_def=f"zone{str(serial_message[8])}_{cfg.zonedef[zonename]['name']}"
+        e.topic = f"{cfg.controller_name}/zones/{e.zone_def}"
+        e.zone_type=cfg.zonedef[zonename]['type']
+    
+    if cfg.homekit_secure == False:
+        utils.trace(f"returning zoneJson  {e.toJson()}")
+        client.publish(e.topic, str(e.state), True, 1 )
+        
+        e.topic = cfg.root_topicStatus
+        client.publish(cfg.root_topicStatus, e.toJson())  
+    
+    if cfg.homekit==True  and isinstance(hk, homekit):
+        hk.set_zone_value(zone=e.zone_def,zone_type=e.zone_type,state=e.state)
+    
+            
+     
 
 def processMessage(serial_message):
     #utils.trace("processMessage")
@@ -401,32 +375,24 @@ def processMessage(serial_message):
         event=serial_message[7]
         sub_event=serial_message[8]
         partition=serial_message[9]
-        
-        
+    
+    
         if serial_message[7] == 0 or serial_message[7]==1:
+            process_zone_message(serial_message)
             
-            
-            utils.trace("E0 Zone Message receivied")
-            e = zone_message()
-            e.zone=serial_message[8]
-            e.state="ON" if serial_message[7] == 1 else "OFF" 
-            e.Partition_Number=serial_message[9]
-            e.zone_name=serial_message[15:30].decode().strip()
-            e.topic = f"{cfg.controller_name}/zones/zone{str(serial_message[8])}"
-            
-            zonename=f"zone{str(serial_message[8])}"
-            if zonename in zonedef:
-                e.zone_def=zonedef[zonename]["name"]
-                e.topic = f"{cfg.controller_name}/zones/{e.zone_def}"
-                
-            utils.trace(f"returning zoneJson  {e.toJson()}")
-            client.publish(e.topic, str(e.state), True, 1 )
-            
-            #e.topic = cfg.root_topicArmHomekit + "/zone" + str(serial_message[8])
-            #client.publish(e.topic, str(e.state), True, 1 )
-            e.topic = cfg.root_topicStatus
-            client.publish(cfg.root_topicStatus, e.toJson())    
+             
         
+        elif (serial_message[7] == 44 and serial_message[8] == 1):
+            client.publish(f"{cfg.controller_name}/AC_failure","true",retain=True)
+        
+        elif (serial_message[7] == 45 and serial_message[8] == 1):
+            client.publish(f"{cfg.controller_name}/AC_failure","false",retain=True)
+                
+        elif (serial_message[7] == 44 and serial_message[8] == 2):
+            client.publish(f"{cfg.controller_name}/Battery_failure","true",retain=True)
+        
+        elif (serial_message[7] == 45 and serial_message[8] == 2):
+                client.publish(f"{cfg.controller_name}/Battery_failure","false",retain=True)
             
         elif (serial_message[7] == 48 and serial_message[8] == 3):
             PANEL_IS_LOGGED_IN = False
@@ -437,7 +403,7 @@ def processMessage(serial_message):
             utils.trace(f"Panel Login from E0 message PANEL_IS_LOGGED_IN:{PANEL_IS_LOGGED_IN}")
            
         elif event == 29 or event == 31:
-            send = paradoxArm()
+            send = pobj.paradoxArm()
             send.stringArmStatus="pending"
             send.intArmStatus=99
             send.Partition = partition
@@ -471,13 +437,13 @@ def processMessage(serial_message):
         
         
     utils.trace(f"Ended processMessage")
-      
+  
 def panel_status_0(panel_password):
     
     if PANEL_IS_LOGGED_IN ==False:
         panel_login(panel_password)
         
-    statusdata = bytearray(MESSAGE_LENGTH)
+    statusdata = bytearray(cfg.MESSAGE_LENGTH)
     statusdata[0] = 0x50
     statusdata[1] = 0x00
     statusdata[2] = 0x80
@@ -494,7 +460,7 @@ def panel_status_1(panel_password):
     if PANEL_IS_LOGGED_IN ==False:
         panel_login(panel_password)
         
-    statusdata = bytearray(MESSAGE_LENGTH)
+    statusdata = bytearray(cfg.MESSAGE_LENGTH)
 
 
     statusdata[0] = 0x50;
@@ -509,11 +475,12 @@ def panel_status_1(panel_password):
     return True
 
 
-        
+    
 
 def process_status_1_message(inData):
+    global hassioStatus
     
-    statusmsg = status_1()
+    statusmsg = pobj.status_1()
     statusmsg.Fire= (inData[17]>>7)&1
     statusmsg.Audible=(inData[17]>>6)&1
     statusmsg.Silent=(inData[17]>>5)&1
@@ -521,13 +488,73 @@ def process_status_1_message(inData):
     statusmsg.StayFlg=(inData[17]>>2)&1
     statusmsg.SleepFlg=(inData[17]>>1)&1
     statusmsg.ArmFlg=(inData[17]>>0)&1
- 
-    client.publish(f"{cfg.controller_name}/status_message_1",statusmsg.toJson())     
+    
+    if statusmsg.SleepFlg==1:
+        hassioStatus[0].HomeKit = "NA"
+        hassioStatus[0].stringArmStatus="armed_home"
+        hassioStatus[0].intArmStatus=2
+    elif statusmsg.StayFlg==1:
+        hassioStatus[0].HomeKit = "SA"
+        hassioStatus[0].stringArmStatus="armed_home"
+        hassioStatus[0].intArmStatus=0
+    elif statusmsg.ArmFlg==1:
+        hassioStatus[0].HomeKit = "AA"
+        hassioStatus[0].stringArmStatus="armed_away"
+        hassioStatus[0].intArmStatus=1
+    elif statusmsg.AlarmFlg==1:
+        hassioStatus[0].HomeKit = "T"
+        hassioStatus[0].stringArmStatus="triggered"
+        hassioStatus[0].intArmStatus=4
+    else:
+        hassioStatus[0].HomeKit = "D"
+        hassioStatus[0].stringArmStatus="disarmed"
+        hassioStatus[0].intArmStatus=3
+    hassioStatus[0].Partition = 0
+    sendArmStatusMQtt(hassioStatus[0])
+         
+    
+    
+        
+    
+    client.publish(f"{cfg.controller_name}/status_message_1_0",statusmsg.toJson())
+    
+    statusmsg.Fire= (inData[21]>>7)&1
+    statusmsg.Audible=(inData[21]>>6)&1
+    statusmsg.Silent=(inData[21]>>5)&1
+    statusmsg.AlarmFlg=(inData[21]>>4)&1
+    statusmsg.StayFlg=(inData[21]>>2)&1
+    statusmsg.SleepFlg=(inData[21]>>1)&1
+    statusmsg.ArmFlg=(inData[21]>>0)&1
+    
+    if statusmsg.SleepFlg==1:
+        hassioStatus[1].HomeKit = "NA"
+        hassioStatus[1].stringArmStatus="armed_home"
+        hassioStatus[1].intArmStatus=2
+    elif statusmsg.StayFlg==1:
+        hassioStatus[1].HomeKit = "SA"
+        hassioStatus[1].stringArmStatus="armed_home"
+        hassioStatus[1].intArmStatus=0
+    elif statusmsg.ArmFlg==1:
+        hassioStatus[1].HomeKit = "AA"
+        hassioStatus[1].stringArmStatus="armed_away"
+        hassioStatus[1].intArmStatus=1
+    elif statusmsg.AlarmFlg==1:
+        hassioStatus[1].HomeKit = "T"
+        hassioStatus[1].stringArmStatus="triggered"
+        hassioStatus[1].intArmStatus=4
+    else:
+        hassioStatus[1].HomeKit = "D"
+        hassioStatus[1].stringArmStatus="disarmed"
+        hassioStatus[1].intArmStatus=3
+    hassioStatus[1].Partition = 1
+    sendArmStatusMQtt(hassioStatus[1])
+    
+    client.publish(f"{cfg.controller_name}/status_message_1_1",statusmsg.toJson())
 
 
 def process_status_0_message(inData):
   
-    statusmsg = status_0()
+    statusmsg = pobj.status_0()
     statusmsg.Timer_Loss = str((inData[4]>> 7) & 1)
     statusmsg.PowerTrouble  = str((inData[4]>>1) &1)
     statusmsg.ACFailureTroubleIndicator = str((inData[6]>>1) &1)
@@ -538,8 +565,8 @@ def process_status_0_message(inData):
     statusmsg.BatteryDCVoltageLevel=str(inData[17])
     
     client.publish(f"{cfg.controller_name}/status_message_0",statusmsg.toJson())
-    
-    
+
+
 def process_status_0_zones(inData):
     Zonename ="";
     zcnt = 0;
@@ -548,9 +575,9 @@ def process_status_0_zones(inData):
         for j in range( 0 , 8):
             zcnt = zcnt+1
             Zonename = "zone" + str(zcnt)
-            if Zonename in zonedef:
-                if zonedef[Zonename]["enabled"] == True:
-                    zonemq[zonedef[Zonename]["name"]] =  (inData[i]>>j)&1
+            if Zonename in cfg.zonedef:
+                if cfg.zonedef[Zonename]["enabled"] == True:
+                    zonemq[f"{Zonename}_{cfg.zonedef[Zonename]['name']}"] =  (inData[i]>>j)&1
             else:
                 zonemq[Zonename] =  (inData[i]>>j)&1
     
@@ -566,7 +593,7 @@ def process_status_0_zones(inData):
     client.publish(f"{cfg.controller_name}/status_message_0_zone",mqmsg)
 
    
-        
+    
 
 def program_init(version):
     utils.trace(version)
@@ -574,7 +601,7 @@ def program_init(version):
     
 
 
-def panel_control(inCommand=inMessage()):
+def panel_control(inCommand=pobj.inMessage()):
     
     #panel_login(inCommand.panel_password)
     
@@ -584,7 +611,14 @@ def panel_control(inCommand=inMessage()):
     
     panel_command = get_panel_command(inCommand.command)
     panel_subcommand = int(inCommand.subcommand) 
-    armdata = bytearray(MESSAGE_LENGTH)
+    if panel_command == cfg.BYPASS or panel_command == cfg.PGMOFF or panel_command == cfg.PGMON:
+        panel_subcommand = int(inCommand.subcommand) -1
+    
+    if panel_command == cfg.SET_DATE:
+        set_panel_date(inCommand.panel_password)
+        return
+    
+    armdata = bytearray(cfg.MESSAGE_LENGTH)
     armdata[0] = 0x40
     armdata[2] = panel_command
     armdata[3] = panel_subcommand
@@ -592,7 +626,7 @@ def panel_control(inCommand=inMessage()):
     armdata[34] = 0x00
     armdata[35] = 0x00
     armdata = checksum_calculate(armdata)
-    #for x in range(MESSAGE_LENGTH):
+    #for x in range(cfg.MESSAGE_LENGTH):
     #    utils.trace(f"[armdata{x}]={hex(armdata[x])}")
         
     if serialWrite(armdata):
@@ -607,7 +641,7 @@ def set_panel_date(password):
     ntptime.settime()
     UTC_OFFSET = int(cfg.timezone) * 60 * 60
     actual_time = time.localtime(time.time() + UTC_OFFSET)
-    datemsg = bytearray(MESSAGE_LENGTH)
+    datemsg = bytearray(cfg.MESSAGE_LENGTH)
     datemsg[0] = 0x30
     datemsg[4] = 0x21
     datemsg[5] = actual_time[0]-2000
@@ -618,7 +652,7 @@ def set_panel_date(password):
     datemsg[33] = 0x05
     
     datemsg = checksum_calculate(datemsg)
-    #for x in range(MESSAGE_LENGTH):
+    #for x in range(cfg.MESSAGE_LENGTH):
     #    utils.trace(f"[armdata{x}]={hex(armdata[x])}")
         
     if serialWrite(datemsg):
@@ -629,7 +663,7 @@ def set_panel_date(password):
 
 def checksum_calculate(data):
     checksum = 0
-    for x in range(MESSAGE_LENGTH-1):  
+    for x in range(cfg.MESSAGE_LENGTH-1):  
         checksum += data[x]
     
     utils.trace(f"calculate checksum for {checksum}")
@@ -644,7 +678,7 @@ def checksum_calculate(data):
 
 def initialize_comunitcation():
     
-    data = bytearray(MESSAGE_LENGTH)
+    data = bytearray(cfg.MESSAGE_LENGTH)
     data[0] = 0x5f
     data[1] = 0x20
     data[33] = 0x05
@@ -671,7 +705,7 @@ def panel_login(panel_password):
     pass1 = "0x" + str(panel_password)[0:2]
     pass2 = "0x" + str(panel_password)[2:4]
     
-    data1=bytearray(MESSAGE_LENGTH)
+    data1=bytearray(cfg.MESSAGE_LENGTH)
     
     data1[0] = 0x00;
     data1[4] = rinitMessage[4]
@@ -699,28 +733,28 @@ def panel_login(panel_password):
 def get_panel_command(arm_request):
     arm_request=arm_request.lower()
     retval = 0
-    if (arm_request == "stay" or arm_request=="0"):
-        retval= STAY_ARM
-    elif (arm_request == "close" or arm_request=="1"):
-        retval= CLOSE_CONNECTION
-    elif (arm_request == "arm" or arm_request=="1"):
-        retval= FULL_ARM
-    elif (arm_request == "sleep" or arm_request=="2"):
-        retval= SLEEP_ARM
+    if (arm_request == "stay" or arm_request=="0" ):
+        retval= paradox_objects.STAY_ARM
+    elif (arm_request == "close"  ):
+        retval= cfg.CLOSE_CONNECTION
+    elif (arm_request == "arm" or arm_request=="1" ):
+        retval= cfg.FULL_ARM
+    elif (arm_request == "sleep" or arm_request=="2" ):
+        retval= cfg.SLEEP_ARM
     elif (arm_request == "disarm" or arm_request == "off" or arm_request == "3"):
-        return DISARM
+        return cfg.DISARM
     elif (arm_request == "bypass" or arm_request == "10"):
-        retval= BYPASS
+        retval= cfg.BYPASS
     elif (arm_request == "pgm_on" or arm_request == "pgmon"):
-        retval= PGMON
+        retval= cfg.PGMON
     elif (arm_request == "pgm_off" or arm_request == "pgmoff"):
-        retval= PGMOFF
+        retval= cfg.PGMOFF
     elif (arm_request == "panelstatus" ):
-        retval= PANEL_STATUS
+        retval= cfg.PANEL_STATUS
     elif (arm_request == "setdate"):
-        retval= SET_DATE
+        retval= cfg.SET_DATE
     elif (arm_request == "armstate"):
-        retval= ARM_STATE
+        retval= cfg.ARM_STATE
     return retval
     
 
@@ -728,19 +762,25 @@ def sendArmStatusMQtt(hass):
     print(f"SENDING ARM STATUS {hass}")
     
         
-    arm_mesg=arm_message()
+    arm_mesg=pobj.arm_message()
     arm_mesg.topic = cfg.root_topicHassioArm + str(hass.Partition)
     arm_mesg.Armstatus =  hass.intArmStatus
     arm_mesg.ArmStatusD = hass.stringArmStatus
-    client.publish(arm_mesg.topic,hass.stringArmStatus, True, 1 )
+    
+    if cfg.homekit_secure == False:
+        client.publish(arm_mesg.topic,hass.stringArmStatus, True, 1 )
     
     if hass.intArmStatus != 99:
-        arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
-        client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
-    
-    time.sleep(1)
-    client.publish(cfg.root_topicStatus, hass.toJson())    
-    return arm_mesg.toJson() 
+        #arm_mesg.topic = f"{cfg.root_topicArmHomekit}/Arm{str(hass.Partition)}"
+        #client.publish(arm_mesg.topic, hass.HomeKit, True, 1 )
+        
+        if cfg.homekit==True and isinstance(hk, homekit) :
+            hk.set_alarm_state(homekit.SecuritySystemTargetState_characteristic,hass.intArmStatus)
+            time.sleep(1)
+            hk.set_alarm_state(homekit.SecuritySystemCurrentState_characteristic,hass.intArmStatus)
+        
+     
+    #return arm_mesg.toJson() 
   
 def sendArmStatus(hass):
     utils.trace(f"SENDING ARM STATUS {hass}")
@@ -756,9 +796,10 @@ def timer_tick(timer):
     time.sleep(0.5)
     led.value(False)
     
+
     
 
-Serial_loop_msg=False
+    
 def serialloop():
     global LIFO,Serial_loop_msg,PANEL_LOGIN_IN_PROGRESS,KILL_THREAD
     serial_last_read = time.time()
@@ -778,7 +819,7 @@ def serialloop():
                   #print(f"LIFO len:{len(LIFO)}")
             
             
-            if len(LIFO)>0 and (time.time() - serial_last_read > 5):
+            if len(LIFO)>0 and (time.time() - serial_last_read >= 2):
                 LIFO = list(set(LIFO))
                 print(f"LIFO is {LIFO}")
                 for i in LIFO:
@@ -797,29 +838,11 @@ def serialloop():
         except OSError as e:
             print(e)
             restart_and_reconnect()
-            
+                
+    
+       
+                
 
 if __name__ == '__main__':
-    try:
-        
-        if station.isconnected() == True:
-            
-            t1= threading.Thread(target=serialloop)
-            t2= threading.Thread(target=webrepl.start)
-            websrv.set_webpage_vars(station.ifconfig(),COMUNTICATION_INIT)
-            print('Starting MQTT')
-            client = connect_and_subscribe()
-            client.publish(cfg.root_topicStatus, f"PROGRAM {program_init(VERSION).decode()} IFconfig:{station.ifconfig()}")
-            print('Starting Timer')
-            
-            tim1.init(period=5000, mode=machine.Timer.PERIODIC, callback=timer_tick)
-            print('Starting serial loop')
-            t1.start()
-            
-        print('Starting webrepl thread')
-        t2.start()
-        print("Starting Webserver")
-        websrv.runsrv()
-    except:
-        restart_and_reconnect()
+    main()
     

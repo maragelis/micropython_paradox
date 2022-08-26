@@ -9,10 +9,10 @@ from time import sleep
 import _thread
 
 
-cfg = config.configuration()
 
 _ipaddress=""
 _PanelConnected=False
+cfg = ""
 
 def set_webpage_vars( ipaddress, PanelConnected):
     global _ipaddress,_PanelConnected
@@ -71,11 +71,13 @@ async def savejson(request):
         cfg.root_topicStatus=request.form['root_topicStatus']
         cfg.root_topicIn=request.form['root_topicIn']
         cfg.root_topicHassioArm=request.form['root_topicHassioArm']
-        cfg.root_topicHassio=request.form['root_topicHassio']
-        cfg.root_topicArmHomekit=request.form['root_topicArmHomekit']
+        
         cfg.ESP_UART=int(request.form['ESP_UART'])
         cfg.controller_name=request.form['controller_name']
         cfg.timezone=request.form['timezone']
+        cfg.homekit=request.form['homekit']
+        cfg.homekit_user=request.form['homekit_user']
+        cfg.homekit_secure=request.form['homekit_secure']
         
         f = open('config.json','w')
         f.write(cfg.toJson())

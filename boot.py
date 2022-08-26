@@ -10,15 +10,14 @@ from machine import UART ,WDT
 import os
 import ntptime
 import esp
-import config
+from config import configuration as cfg
 esp.osdebug(None)
 import gc
 import sys
 gc.collect()
 
-cfg = config.configuration()
-ssid = cfg.wifissid
-password = cfg.wifipassword
+cfg1=cfg()
+
 
 #EXAMPLE IP ADDRESS
 #mqtt_server = '192.168.1.144'
@@ -33,7 +32,7 @@ station = network.WLAN(network.STA_IF)
 
 station.active(True)
 led.value(station.isconnected())
-station.connect(ssid, password)
+station.connect(cfg.wifissid, cfg.wifipassword)
 
 ti = time.time()
 while (time.time()-ti < 10) and (station.isconnected() == False):
