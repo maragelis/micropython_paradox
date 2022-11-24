@@ -17,6 +17,8 @@ class configuration:
     root_topicHassioArm=""
     root_topicHassio=""
     root_topicArmHomekit=""
+    mqttclientid=""
+    useCayenne = True
     ESP_UART=0
     controller_name="Paradox32CTL"
     timezone = 2
@@ -94,6 +96,8 @@ class configuration:
                 ,"homekit":cls.homekit
                 ,"homekit_secure":cls.homekit_secure
                 ,"homekit_key":configuration.encrypt(cls.homekit_user)
+                ,"mqttclientid":cls.mqttclientid
+                ,"useCayenne":cls.useCayenne
                 
             }
         return json.dumps(config_dict)
@@ -133,6 +137,8 @@ class configuration:
             cls.ESP_UART=jsonf["ESP_UART"]
             cls.timezone=jsonf["timezone"]
             cls.homekit=True if jsonf["homekit"]=="true" else False
+            cls.mqttclientid=jsonf["mqttclientid"]
+            cls.useCayenne=True if jsonf["useCayenne"]=="true" else False
             
             if 'homekit_key' in jsonf:
                 cls.homekit_user=configuration.decrypt(jsonf["homekit_key"])

@@ -174,7 +174,7 @@ def sub_cb(topic, msg):
 def connect_and_subscribe():
     global client
     
-    client_id = ubinascii.hexlify(machine.unique_id())
+    client_id = cfg.mqttclientid#ubinascii.hexlify(machine.unique_id())
     topic_sub = f"{cfg.root_topicIn}/#"
     mqtt_server = cfg.mqttserver
     utils.trace(f"mqtt_server:{cfg.mqttserver}, username:{cfg.mqttusername}, password:{cfg.mqttpassword}, topic:{cfg.root_topicIn}")
