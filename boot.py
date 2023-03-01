@@ -18,7 +18,6 @@ gc.collect()
 
 cfg1=cfg()
 
-
 #EXAMPLE IP ADDRESS
 #mqtt_server = '192.168.1.144'
 led = machine.Pin(2, machine.Pin.OUT)
@@ -40,11 +39,11 @@ while (time.time()-ti < 10) and (station.isconnected() == False):
 
 if station.isconnected() == False:
     print('Starting AP mode')
-    ap = network.WLAN(network.AP_IF)
-    ap.active(True)
-    ap.config(essid="paradox32CTL", password="configparadox",authmode=network.AUTH_WPA_WPA2_PSK)
+    station = network.WLAN(network.AP_IF)
+    station.active(True)
+    station.config(essid="paradox32CTL", password="configparadox",authmode=network.AUTH_WPA_WPA2_PSK)
     print('AP Connection successful')
-    print(ap.ifconfig())
+    #print(station.ifconfig())
 else:
     station.config(dhcp_hostname=cfg.controller_name)
     print(station.config('dhcp_hostname'))
@@ -52,5 +51,5 @@ else:
     print('Connection successful')
     print(station.ifconfig())
 
-    import webrepl
+import webrepl
 #webrepl.start()

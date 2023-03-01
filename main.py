@@ -47,11 +47,11 @@ def main():
     paradoxserial.init()
 
     try:
-        
+        t1= threading.Thread(target=serialloop)
+        t2= threading.Thread(target=webrepl.start)
         if station.isconnected() == True:
             
-            t1= threading.Thread(target=serialloop)
-            t2= threading.Thread(target=webrepl.start)
+            
             
             print('Starting MQTT')
             client = connect_and_subscribe()
@@ -609,6 +609,7 @@ def panel_control(inCommand=pobj.inMessage()):
         panel_login(inCommand.panel_password)
     
     
+    
     panel_command = get_panel_command(inCommand.command)
     panel_subcommand = int(inCommand.subcommand) 
     if panel_command == cfg.BYPASS or panel_command == cfg.PGMOFF or panel_command == cfg.PGMON:
@@ -721,7 +722,8 @@ def panel_login(panel_password):
     data1[15] = int(pass2, 16)
     data1[33] = 0x05;
     data1=checksum_calculate(data1)
-    initMessage = serialReadWriteQuick(data1)  
+    initMessage = serialReadWriteQuick(data1)
+    
     if (initMessage[0] == 0x10):
         PANEL_IS_LOGGED_IN=True
     
@@ -793,7 +795,7 @@ def timer_tick(timer):
     #print('timer ticked')
     client.ping()
     led.value(True)
-    time.sleep(0.5)
+    time.sleep_ms(500)
     led.value(False)
     
 
@@ -821,7 +823,7 @@ def serialloop():
             
             if len(LIFO)>0 and (time.time() - serial_last_read >= 2):
                 LIFO = list(set(LIFO))
-                print(f"LIFO is {LIFO}")
+                #print(f"LIFO is {LIFO}")
                 for i in LIFO:
                         if not isinstance(i, str):
                             sendArmStatusMQtt(i)
