@@ -794,8 +794,8 @@ def sendArmStatus(hass):
 def timer_tick(timer):
     #print('timer ticked')
     client.ping()
-    led.value(True)
-    time.sleep_ms(500)
+    led.value(True)    
+    time.sleep_ms(200)
     led.value(False)
     
 
@@ -847,4 +847,5 @@ def serialloop():
 
 if __name__ == '__main__':
     main()
+    
     
